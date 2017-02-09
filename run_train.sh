@@ -1,2 +1,2 @@
-# 08-02-17 wed, first-train
-python geonet_train.py --log_dir=log/test --data_dir=data/dataset2 --batch_size=64 --image_width=32 --image_height=32 --max_steps=100000 --decay_steps=30000
+# 09-02-17 thu., train with dp. map
+python geonet_train.py --log_dir=log/disp --data_dir=data/displacement --batch_size=4 --image_width=256 --image_height=256 --max_steps=50000 --decay_steps=30000

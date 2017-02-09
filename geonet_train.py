@@ -17,7 +17,8 @@ import numpy as np
 import tensorflow as tf
 
 import geonet_model
-import geonet_data
+# import geonet_data
+import geonet_data_disp
 
 # parameters
 FLAGS = tf.app.flags.FLAGS
@@ -57,7 +58,8 @@ tf.app.flags.DEFINE_string('file_list', 'train.txt',
 def train():
     """Train the network for a number of steps."""
     with tf.Graph().as_default():
-        batch_manager = geonet_data.BatchManager()
+        # batch_manager = geonet_data.BatchManager()
+        batch_manager = geonet_data_disp.BatchManager()
         print('%s: %d files' % (datetime.now(), batch_manager.num_examples_per_epoch))
 
         is_train = True
