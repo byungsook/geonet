@@ -22,10 +22,10 @@ import geonet_data
 
 # parameters
 FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('eval_dir', 'eval/test',
+tf.app.flags.DEFINE_string('eval_dir', 'eval/gs_noise',
                            """Directory where to write event logs """
                            """and checkpoint.""")
-tf.app.flags.DEFINE_string('pretrained_model_checkpoint_path', 'log/test/geonet.ckpt',
+tf.app.flags.DEFINE_string('pretrained_model_checkpoint_path', 'log/gs_noise/geonet.ckpt',
                            """If specified, restore this pretrained model.""")
 tf.app.flags.DEFINE_float('moving_avg_decay', 0.9999,
                           """The decay to use for the moving average.""")
