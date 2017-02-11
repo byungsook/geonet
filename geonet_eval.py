@@ -18,7 +18,7 @@ import numpy as np
 import tensorflow as tf
 
 import geonet_model
-import geonet_data
+import geonet_data_disp
 
 # parameters
 FLAGS = tf.app.flags.FLAGS
@@ -39,7 +39,7 @@ tf.app.flags.DEFINE_integer('num_epoch', 1, # 10
 
 def evaluate():
     with tf.Graph().as_default() as g:
-        batch_manager = geonet_data.BatchManager()
+        batch_manager = geonet_data_disp.BatchManager()
         print('%s: %d files' % (datetime.now(), batch_manager.num_examples_per_epoch))
 
         global_step = tf.Variable(0, name='global_step', trainable=False)
@@ -95,7 +95,7 @@ def evaluate():
             total_loss = 0
             for step in range(num_iter):
                 start_time = time.time()
-                x_batch, y_batch = batch_manager.batch()
+                x_batch, y_batch, _ = batch_manager.batch()
                 y_hat_, loss_value = sess.run([tf.cast(tf.multiply(y_hat, 255.0), tf.uint8), loss], 
                                                    feed_dict={phase_train: is_train, x: x_batch, y: y_batch})
 

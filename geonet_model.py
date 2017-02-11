@@ -141,7 +141,10 @@ def inference(x, phase_train, model=1):
     return model_selector[model](x, phase_train)
 
 
-def loss(y_hat, y):
+def loss(y_hat, y, w=None):
     # y_hat: estimate, y: training set
-    l2_loss = tf.nn.l2_loss(y_hat - y, name='l2_loss')
+    if w is None:
+        l2_loss = tf.nn.l2_loss(y_hat - y, name='l2_loss')
+    else:
+        l2_loss = tf.nn.l2_loss(tf.multiply(y_hat - y, w), name='l2_loss')
     return l2_loss
