@@ -22,7 +22,7 @@ import geonet_data_disp
 
 # parameters
 FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('log_dir', 'log/sf_test',
+tf.app.flags.DEFINE_string('log_dir', 'log/test',
                            """Directory where to write event logs """
                            """and checkpoint.""")
 tf.app.flags.DEFINE_boolean('log_device_placement', False,
@@ -31,11 +31,11 @@ tf.app.flags.DEFINE_string('pretrained_model_checkpoint_path', '',
                            """If specified, restore this pretrained model """
                            """before beginning any training.
                            e.g. log/second_train/geonet.ckpt """)
-tf.app.flags.DEFINE_integer('max_steps', 50000, # 20000
+tf.app.flags.DEFINE_integer('max_steps', 10, # 20000
                             """Number of batches to run.""")
 tf.app.flags.DEFINE_integer('decay_steps', 30000,
                             """Decay steps""")
-tf.app.flags.DEFINE_float('initial_learning_rate', 0.005,
+tf.app.flags.DEFINE_float('initial_learning_rate', 0.01,
                           """Initial learning rate.""")
 tf.app.flags.DEFINE_float('learning_decay_factor', 0.1,
                           """Learning rate decay factor.""")
@@ -73,7 +73,10 @@ def train():
         y_hat = geonet_model.inference(x, phase_train)
 
         # Calculate loss.
-        loss = geonet_model.loss(y_hat, y, w)
+        if FLAGS.weight_on:
+            loss = geonet_model.loss(y_hat, y, w)
+        else:
+            loss = geonet_model.loss(y_hat, y)
 
         ###############################################################################
         # Build a Graph that trains the model with one batch of examples and
@@ -159,8 +162,12 @@ def train():
             # Train one step.
             start_time = time.time()
             x_batch, y_batch, w_batch = batch_manager.batch()
-            _, loss_value = sess.run([train_op, loss], feed_dict={phase_train: is_train,
+            if FLAGS.weight_on:
+                _, loss_value = sess.run([train_op, loss], feed_dict={phase_train: is_train,
                                                                   x: x_batch, y: y_batch, w: w_batch})
+            else:
+                _, loss_value = sess.run([train_op, loss], feed_dict={phase_train: is_train,
+                                                                  x: x_batch, y: y_batch})
             duration = time.time() - start_time
 
             assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
@@ -190,22 +197,25 @@ def train():
                 x_summary_tmp = tf.Summary()
                 y_summary_tmp = tf.Summary()
                 y_hat_summary_tmp = tf.Summary()
-                w_summary_tmp = tf.Summary()
                 x_summary_tmp.ParseFromString(x_summary_str)
                 y_summary_tmp.ParseFromString(y_summary_str)
                 y_hat_summary_tmp.ParseFromString(y_hat_summary_str)
-                w_summary_tmp.ParseFromString(w_summary_str)
                 for i in xrange(FLAGS.max_images):
                     new_tag = '%06d/%02d' % (step, i)
                     x_summary_tmp.value[i].tag = new_tag
                     y_summary_tmp.value[i].tag = new_tag
                     y_hat_summary_tmp.value[i].tag = new_tag
-                    w_summary_tmp.value[i].tag = new_tag
-
+        
                 summary_writer.add_summary(x_summary_tmp, step)
                 summary_y_writer.add_summary(y_summary_tmp, step)
                 summary_y_hat_writer.add_summary(y_hat_summary_tmp, step)
-                summary_w_writer.add_summary(w_summary_tmp, step)
+
+                if FLAGS.weight_on:
+                    w_summary_tmp = tf.Summary()
+                    w_summary_tmp.ParseFromString(w_summary_str)
+                    for i in xrange(FLAGS.max_images):
+                        w_summary_tmp.value[i].tag = new_tag
+                    summary_w_writer.add_summary(w_summary_tmp, step)
 
             # Save the model checkpoint periodically.
             if (step + 1) % FLAGS.save_steps == 0 or (step + 1) == FLAGS.max_steps:

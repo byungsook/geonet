@@ -42,8 +42,12 @@ tf.app.flags.DEFINE_integer('batch_size', 4,
                             """Number of images to process in a batch.""")
 tf.app.flags.DEFINE_integer('num_processors', 8,
                             """# of processors for batch generation.""")
-tf.app.flags.DEFINE_integer('noise_level', 5,
+tf.app.flags.DEFINE_float('min_scale', 0.03125,
+                            """minimum of downscale factor.""")
+tf.app.flags.DEFINE_float('noise_level', 0.001,
                             """noise level.""")
+tf.app.flags.DEFINE_boolean('weight_on', False,
+                          """whether to use weight for sharp features or not""")
 tf.app.flags.DEFINE_float('weight_sigma', 0.7,
                           """sigma for weight kernel""")
 
@@ -57,7 +61,9 @@ class Param(object):
     def __init__(self):
         self.image_width = FLAGS.image_width
         self.image_height = FLAGS.image_height
+        self.min_scale = FLAGS.min_scale
         self.noise_level = FLAGS.noise_level
+        self.weight_on = FLAGS.weight_on
         self.weight_sigma = FLAGS.weight_sigma
 
 
@@ -136,14 +142,13 @@ class BatchManager(object):
 
 
 def train_set(batch_id, batch, x_batch, y_batch, w_batch, FLAGS):
-    x_img_path = batch[batch_id][:-4] + ('_n%d' % FLAGS.noise_level) + batch[batch_id][-4:]
+    x_img_path = batch[batch_id][:-4] + ('_%.3f' % FLAGS.noise_level) + batch[batch_id][-4:]
     x_img = Image.open(x_img_path)
     x = np.array(x_img)[:,:,0].astype(np.float) / 255.0
 
     # downscale factor
     np.random.seed()
-    min_scale_factor = 0.1
-    down_scale_factor = np.random.rand()*(1 - min_scale_factor) + min_scale_factor # [min_scale_factore, 1)
+    down_scale_factor = np.random.rand()*(1 - FLAGS.min_scale) + FLAGS.min_scale # [FLAGS.min_scale, 1)
     crop_size = int(1024*down_scale_factor)
     
     # random left corner
@@ -171,16 +176,21 @@ def train_set(batch_id, batch, x_batch, y_batch, w_batch, FLAGS):
     y_crop = transform.resize(y_crop, (FLAGS.image_height, FLAGS.image_width), order=3, mode='symmetric')
 
     # edge detection for loss weight
-    w_crop = scharr(y_crop)
-    # w_crop = np.ones([FLAGS.image_height, FLAGS.image_width])
-    # w_crop += 1
-    w_crop /= np.amax(w_crop) # [0 1]
-    # w_crop = scipy.stat.threshold(w_crop, threshmin=0.5, threshmax=1, newval=0)
-    w_crop = np.exp(-0.5 * ((1.0-w_crop) / FLAGS.weight_sigma)**2)
-    # w_crop += 1 # [1 2]
-    
-    # w_crop *= 1000 # [0 1000]
-    # w_crop += 1 # [1 1001]
+    if FLAGS.weight_on:
+        w_crop = scharr(y_crop)
+        # w_crop += 1
+        w_crop /= np.amax(w_crop) # [0 1]
+        # w_crop = scipy.stat.threshold(w_crop, threshmin=0.5, threshmax=1, newval=0)
+        w_crop = np.exp(-0.5 * ((1.0-w_crop) / FLAGS.weight_sigma)**2)
+        # w_crop += 1 # [1 2]
+        # w_crop *= 1000 # [0 1000]
+        # w_crop += 1 # [1 1001]
+    else:
+        w_crop = np.ones([FLAGS.image_height, FLAGS.image_width])
+
+    # use clean input with a probability of 10%
+    if np.random.rand() < 0.1:
+        x_crop = y_crop
 
     # # debug
     # plt.figure()
