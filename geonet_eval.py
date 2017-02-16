@@ -18,14 +18,14 @@ import numpy as np
 import tensorflow as tf
 
 import geonet_model
-import geonet_data_disp
+import geonet_data
 
 # parameters
 FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('eval_dir', 'eval/gs_noise',
+tf.app.flags.DEFINE_string('eval_dir', 'eval/test',
                            """Directory where to write event logs """
                            """and checkpoint.""")
-tf.app.flags.DEFINE_string('pretrained_model_checkpoint_path', 'log/gs_noise/geonet.ckpt',
+tf.app.flags.DEFINE_string('pretrained_model_checkpoint_path', 'log/test/geonet.ckpt',
                            """If specified, restore this pretrained model.""")
 tf.app.flags.DEFINE_float('moving_avg_decay', 0.9999,
                           """The decay to use for the moving average.""")
@@ -39,11 +39,11 @@ tf.app.flags.DEFINE_integer('num_epoch', 1, # 10
 
 def evaluate():
     with tf.Graph().as_default() as g:
-        batch_manager = geonet_data_disp.BatchManager()
+        batch_manager = geonet_data.BatchManager()
         print('%s: %d files' % (datetime.now(), batch_manager.num_examples_per_epoch))
 
         global_step = tf.Variable(0, name='global_step', trainable=False)
-        is_train = True
+        is_train = False
         phase_train = tf.placeholder(tf.bool, name='phase_train')
 
         x = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.image_height, FLAGS.image_width, 1])
@@ -96,14 +96,14 @@ def evaluate():
             for step in range(num_iter):
                 start_time = time.time()
                 x_batch, y_batch, _ = batch_manager.batch()
-                y_hat_, loss_value = sess.run([tf.cast(tf.multiply(y_hat, 255.0), tf.uint8), loss], 
+                y_hat_, loss_value = sess.run([tf.cast(tf.tf.multiply(tf.add(tf.multiply(y_hat, 5.0), 0.5), 255.0), tf.uint8), loss], 
                                                    feed_dict={phase_train: is_train, x: x_batch, y: y_batch})
 
                 new_shape = [FLAGS.max_images, FLAGS.image_height, FLAGS.image_width, 1]
                 x_ = x_batch[:FLAGS.max_images,:]
-                x_ = np.reshape(x_*255.0, new_shape).astype(np.uint8)
+                x_ = np.reshape((x_/0.1*0.5 + 0.5)*255.0, new_shape).astype(np.uint8)
                 y_ = y_batch[:FLAGS.max_images,:]
-                y_ = np.reshape(y_*255.0, new_shape).astype(np.uint8)
+                y_ = np.reshape((y_/0.1*0.5 + 0.5)*255.0, new_shape).astype(np.uint8)
 
                 total_loss += loss_value
                 duration = time.time() - start_time

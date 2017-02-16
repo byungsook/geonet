@@ -29,12 +29,12 @@ def _variable_summaries(x):
         # session. This helps the clarity of presentation on tensorboard.
         x_name = x.op.name # re.sub('%s_[0-9]*/' % TOWER_NAME, '', x.op.name)
         mean = tf.reduce_mean(x)
-        tf.scalar_summary('mean/' + x_name, mean)
-        tf.scalar_summary('stddev/' + x_name, tf.sqrt(tf.reduce_sum(tf.square(x - mean))))
-        tf.scalar_summary('max/' + x_name, tf.reduce_max(x))
-        tf.scalar_summary('min/' + x_name, tf.reduce_min(x))
-        tf.scalar_summary('sparsity/' + x_name, tf.nn.zero_fraction(x))
-        tf.histogram_summary(x_name, x)
+        tf.summary.scalar('mean/' + x_name, mean)
+        tf.summary.scalar('stddev/' + x_name, tf.sqrt(tf.reduce_sum(tf.square(x - mean))))
+        tf.summary.scalar('max/' + x_name, tf.reduce_max(x))
+        tf.summary.scalar('min/' + x_name, tf.reduce_min(x))
+        tf.summary.scalar('sparsity/' + x_name, tf.nn.zero_fraction(x))
+        tf.summary.histogram(x_name, x)
 
 
 def _variable_on_cpu(name, shape, initializer):
@@ -73,7 +73,7 @@ def _batch_normalization(name, x, d_next, phase_train, is_conv=True):
     else:
         batch_mean, batch_var = tf.nn.moments(x, [0])
     scale = _variable_on_cpu(name+'/1_scale', [d_next], tf.ones_initializer()) # gamma
-    offset = _variable_on_cpu(name+'/2_offset', [d_next], tf.zeros_initializer) # beta
+    offset = _variable_on_cpu(name+'/2_offset', [d_next], tf.zeros_initializer()) # beta
     
     ema = tf.train.ExponentialMovingAverage(decay=0.5)
 

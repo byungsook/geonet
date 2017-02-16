@@ -22,22 +22,37 @@ import platform
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
+from skimage import transform
+from skimage import feature
+from skimage.filters import roberts, sobel, scharr, prewitt
+from scipy import stats
+import scipy.io
 
 import tensorflow as tf
 
 
 # parameters
 FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('data_dir', 'data/dataset2',
+tf.app.flags.DEFINE_string('data_dir', 'data/10FacialModels',
                            """Path to data directory.""")
-tf.app.flags.DEFINE_integer('image_width', 32,
+tf.app.flags.DEFINE_integer('image_width', 128,
                             """Image Width.""")
-tf.app.flags.DEFINE_integer('image_height', 32,
+tf.app.flags.DEFINE_integer('image_height', 128,
                             """Image Height.""")
-tf.app.flags.DEFINE_integer('batch_size', 64, # 64
+tf.app.flags.DEFINE_integer('batch_size', 16,
                             """Number of images to process in a batch.""")
 tf.app.flags.DEFINE_integer('num_processors', 8,
                             """# of processors for batch generation.""")
+tf.app.flags.DEFINE_boolean('transform', True,
+                          """whether to transform or not""")
+# tf.app.flags.DEFINE_float('min_scale', 0.125,
+#                             """minimum of downscale factor.""")
+tf.app.flags.DEFINE_float('noise_level', 0.005,
+                            """noise level.""")
+tf.app.flags.DEFINE_boolean('weight_on', False,
+                          """whether to use weight for sharp features or not""")
+tf.app.flags.DEFINE_float('weight_sigma', 0.7,
+                          """sigma for weight kernel""")
 
 
 class MPManager(multiprocessing.managers.SyncManager):
@@ -49,6 +64,11 @@ class Param(object):
     def __init__(self):
         self.image_width = FLAGS.image_width
         self.image_height = FLAGS.image_height
+        self.transform = FLAGS.transform
+        # self.min_scale = FLAGS.min_scale
+        self.noise_level = FLAGS.noise_level
+        self.weight_on = FLAGS.weight_on
+        self.weight_sigma = FLAGS.weight_sigma
 
 
 class BatchManager(object):
@@ -63,8 +83,7 @@ class BatchManager(object):
                     line = f.readline()
                     if not line: break
 
-                    # file_path = os.path.join(FLAGS.data_dir, line.rstrip())
-                    file_path = line.rstrip()
+                    file_path = os.path.join(FLAGS.data_dir, line.rstrip())
                     self._data_list.append(file_path)
         else:
             for root, _, files in os.walk(FLAGS.data_dir):
@@ -84,6 +103,7 @@ class BatchManager(object):
         if FLAGS.num_processors == 1:
             self.x_batch = np.zeros([FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1], dtype=np.float)
             self.y_batch = np.zeros([FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1], dtype=np.float)
+            self.w_batch = np.zeros([FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1], dtype=np.float)
         else:
             self._mpmanager = MPManager()
             self._mpmanager.start()
@@ -91,8 +111,9 @@ class BatchManager(object):
 
             self.x_batch = self._mpmanager.np_empty([FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1], dtype=np.float)
             self.y_batch = self._mpmanager.np_empty([FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1], dtype=np.float)
+            self.w_batch = self._mpmanager.np_empty([FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1], dtype=np.float)
             self._batch = self._mpmanager.list(['' for _ in xrange(FLAGS.batch_size)])
-            self._func = partial(train_set, batch=self._batch, x_batch=self.x_batch, y_batch=self.y_batch, FLAGS=Param())
+            self._func = partial(train_set, batch=self._batch, x_batch=self.x_batch, y_batch=self.y_batch, w_batch=self.w_batch, FLAGS=Param())
 
 
     def __del__(self):
@@ -106,7 +127,7 @@ class BatchManager(object):
             _batch = []
             for i in xrange(FLAGS.batch_size):
                 _batch.append(self._data_list[self._next_id])
-                train_set(i, _batch, self.x_batch, self.y_batch, FLAGS)
+                train_set(i, _batch, self.x_batch, self.y_batch, self.w_batch, FLAGS)
                 self._next_id = (self._next_id + 1) % len(self._data_list)
                 if self._next_id == 0:
                     self.num_epoch = self.num_epoch + 1
@@ -121,35 +142,120 @@ class BatchManager(object):
 
             self._pool.map(self._func, range(FLAGS.batch_size))
 
-        return self.x_batch, self.y_batch
+        return self.x_batch, self.y_batch, self.w_batch
 
 
-def train_set(batch_id, batch, x_batch, y_batch, FLAGS):
-    x_img = Image.open(batch[batch_id])
-    x = np.array(x_img)[:,:,0].astype(np.float) / 255.0
-    
-    y_img = Image.open(batch[batch_id])
-    y = np.array(y_img)[:,:,0].astype(np.float)
-    y = np.clip(y, a_min=16, a_max=235) / 255.0
+def train_set(batch_id, batch, x_batch, y_batch, w_batch, FLAGS):
+    x_path = batch[batch_id][:-4] + ('_%.3f' % FLAGS.noise_level) + batch[batch_id][-4:]
+    if batch[batch_id][-3:] == 'png':
+        x_img = Image.open(x_path)
+        x = np.array(x_img)[:,:,0].astype(np.float) / 255.0
+    else:
+        # RANGE_MAX = 0.1
+        x = scipy.io.loadmat(x_path)['result'] # / RANGE_MAX * 0.5 + 0.5 # [0, 1]
+        # print(x_path, np.amin(x), np.amax(x), np.average(x))
 
-    # add noise to x (temp)
-    noise = 0.05 * np.random.randn(*x.shape)
-    x = np.clip(x+noise, a_min=0.0, a_max=1.0)
-    
+    if FLAGS.transform:
+        np.random.seed()
+
+        # random flip and rotate
+        flip = (np.random.rand() > 0.5)
+        if flip:
+            x_rotate = np.fliplr(x)
+        else:
+            x_rotate = x
+        r = np.random.rand() * 360.0
+        x_rotate = transform.rotate(x_rotate, r, order=3, mode='symmetric')
+
+        # # debug
+        # plt.figure()
+        # plt.subplot(131)
+        # plt.imshow(x, cmap=plt.cm.gray)
+        # plt.subplot(132)
+        # plt.imshow(x_rotate, cmap=plt.cm.gray)
+        # plt.subplot(133)
+        # plt.imshow(transform.rotate(x, r, resize=True, mode='symmetric'), cmap=plt.cm.gray)
+        # plt.show()
+
+        # down_scale_factor = np.random.rand()*(1 - FLAGS.min_scale) + FLAGS.min_scale # [FLAGS.min_scale, 1)
+        # down_scale_factor = FLAGS.min_scale
+        # crop_size = int(image_size*down_scale_factor)
+
+        # random left corner
+        image_shape = x.shape
+        lc_r = np.random.randint(image_shape[0]-FLAGS.image_height+1)
+        lc_c = np.random.randint(image_shape[1]-FLAGS.image_width+1)
+        x_crop = x_rotate[lc_r:lc_r+FLAGS.image_height, lc_c:lc_c+FLAGS.image_width]
+    else:
+        x_crop = x
+
+    # transform y in the same way
+    if batch[batch_id][-3:] == 'png':
+        y_img = Image.open(batch[batch_id])
+        y = np.array(y_img)[:,:,0].astype(np.float) / 255.0
+    else:
+        y = scipy.io.loadmat(batch[batch_id])['result'] # / RANGE_MAX * 0.5 + 0.5 # [0, 1]
+        # print(batch[batch_id], np.amin(y), np.amax(y), np.average(y))
+
+    if FLAGS.transform:
+        if flip:
+            y_rotate = np.fliplr(y)
+        else:
+            y_rotate = y
+        y_rotate = transform.rotate(y_rotate, r, order=3, mode='symmetric')
+        y_crop = y_rotate[lc_r:lc_r+FLAGS.image_height, lc_c:lc_c+FLAGS.image_width]
+    else:
+        y_crop = y
+
+    # use clean input with a probability of 10%
+    # TODO: need to disable when evaluation
+    if np.random.rand() < 0.1:
+        x_crop = y_crop
+
+    # edge detection for loss weight
+    if FLAGS.weight_on:
+        w_crop = scharr(y_crop)
+        # w_crop += 1
+        w_crop /= np.amax(w_crop) # [0 1]
+        # w_crop = scipy.stat.threshold(w_crop, threshmin=0.5, threshmax=1, newval=0)
+        w_crop = np.exp(-0.5 * ((1.0-w_crop) / FLAGS.weight_sigma)**2)
+        # w_crop += 1 # [1 2]
+        # w_crop *= 1000 # [0 1000]
+        # w_crop += 1 # [1 1001]
+    else:
+        w_crop = np.ones([FLAGS.image_height, FLAGS.image_width])
+
     # # debug
     # plt.figure()
     # plt.subplot(121)
-    # plt.imshow(x, cmap=plt.cm.gray)
+    # plt.imshow(x_crop, cmap=plt.cm.gray, clim=(-0.1, 0.1))
     # plt.subplot(122)
-    # plt.imshow(y, cmap=plt.cm.gray)
-    # mng = plt.get_current_fig_manager()
-    # mng.full_screen_toggle()
+    # plt.imshow(y_crop, cmap=plt.cm.gray, clim=(-0.1, 0.1))
+    # # plt.subplot(231)
+    # # plt.imshow(x_crop, cmap=plt.cm.gray)
+    # # plt.subplot(232)
+    # # plt.imshow(y_crop, cmap=plt.cm.gray)
+    # # plt.subplot(233)
+    # # plt.imshow(w_crop, cmap=plt.cm.gray)
+    # # w_crop_r = roberts(y_crop)
+    # # w_crop_s = sobel(y_crop)
+    # # w_crop_p = prewitt(y_crop)
+    # # plt.subplot(234)
+    # # plt.imshow(w_crop_r, cmap=plt.cm.gray)
+    # # plt.subplot(235)
+    # # plt.imshow(w_crop_s, cmap=plt.cm.gray)
+    # # plt.subplot(236)
+    # # plt.imshow(w_crop_p, cmap=plt.cm.gray)
+    # # mng = plt.get_current_fig_manager()
+    # # mng.full_screen_toggle()
     # plt.show()
-    # print('x', np.amin(x), np.amax(x))
-    # print('y', np.amin(y), np.amax(y))
+    # # print('x', np.amin(x_crop), np.amax(x_crop))
+    # # print('y', np.amin(y_crop), np.amax(y_crop))
+    # # print('w', np.amin(w_crop), np.amax(w_crop))
 
-    x_batch[batch_id,:,:,0] = x
-    y_batch[batch_id,:,:,0] = y
+    x_batch[batch_id,:,:,0] = x_crop
+    y_batch[batch_id,:,:,0] = y_crop
+    w_batch[batch_id,:,:,0] = w_crop
 
 
 def split_dataset():
@@ -181,20 +287,29 @@ if __name__ == '__main__':
         os.chdir(working_path)
 
     # parameters 
-    tf.app.flags.DEFINE_string('file_list', 'train.txt', """file_list""")
+    tf.app.flags.DEFINE_string('file_list', 'test_mat.txt', """file_list""")
     FLAGS.num_processors = 1
+    # # eval
+    # FLAGS.file_list = 'test.txt'
+    # FLAGS.image_height = 1024
+    # FLAGS.image_width = 1024
+    # FLAGS.transform = False
+    # FLAGS.min_scale = 1.0
+    # FLAGS.batch_size = 1
     
     # split_dataset()
 
     batch_manager = BatchManager()
-    x_batch, y_batch = batch_manager.batch()
+    x_batch, y_batch, w_batch = batch_manager.batch()
 
-    plt.figure()        
+    plt.figure()
     for i in xrange(FLAGS.batch_size):
         plt.subplot(121)
-        plt.imshow(np.reshape(x_batch[i,:], [FLAGS.image_height, FLAGS.image_width]), cmap=plt.cm.gray)
+        plt.imshow(np.reshape(x_batch[i,:], [FLAGS.image_height, FLAGS.image_width]), cmap=plt.cm.gray, clim=(-0.1, 0.1))
         plt.subplot(122)
-        plt.imshow(np.reshape(y_batch[i,:], [FLAGS.image_height, FLAGS.image_width]), cmap=plt.cm.gray)
+        plt.imshow(np.reshape(y_batch[i,:], [FLAGS.image_height, FLAGS.image_width]), cmap=plt.cm.gray, clim=(-0.1, 0.1))
+        # plt.subplot(133)
+        # plt.imshow(np.reshape(w_batch[i,:], [FLAGS.image_height, FLAGS.image_width]), cmap=plt.cm.gray, clim=(0.0, 1.0))
         plt.show()
 
     print('Done')

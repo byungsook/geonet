@@ -17,8 +17,7 @@ import numpy as np
 import tensorflow as tf
 
 import geonet_model
-# import geonet_data
-import geonet_data_disp
+import geonet_data
 
 # parameters
 FLAGS = tf.app.flags.FLAGS
@@ -30,7 +29,7 @@ tf.app.flags.DEFINE_boolean('log_device_placement', False,
 tf.app.flags.DEFINE_string('pretrained_model_checkpoint_path', '',
                            """If specified, restore this pretrained model """
                            """before beginning any training.
-                           e.g. log/second_train/geonet.ckpt """)
+                           e.g. log/test/geonet.ckpt """)
 tf.app.flags.DEFINE_integer('max_steps', 10, # 20000
                             """Number of batches to run.""")
 tf.app.flags.DEFINE_integer('decay_steps', 30000,
@@ -51,15 +50,14 @@ tf.app.flags.DEFINE_integer('summary_steps', 100,
                             """summary steps.""")
 tf.app.flags.DEFINE_integer('save_steps', 5000,
                             """save steps""")
-tf.app.flags.DEFINE_string('file_list', 'train.txt',
+tf.app.flags.DEFINE_string('file_list', 'train_mat.txt',
                            """file_list""")
 
 
 def train():
     """Train the network for a number of steps."""
     with tf.Graph().as_default():
-        # batch_manager = geonet_data.BatchManager()
-        batch_manager = geonet_data_disp.BatchManager()
+        batch_manager = geonet_data.BatchManager()
         print('%s: %d files' % (datetime.now(), batch_manager.num_examples_per_epoch))
 
         is_train = True
@@ -182,10 +180,10 @@ def train():
             if step % FLAGS.summary_steps == 0 or step < 100:
                 new_shape = [FLAGS.max_images, FLAGS.image_height, FLAGS.image_width, 1]
                 x_ = x_batch[:FLAGS.max_images,:]
-                x_ = np.reshape(x_*255.0, new_shape).astype(np.uint8)
+                x_ = np.reshape((x_/0.1*0.5 + 0.5)*255.0, new_shape).astype(np.uint8)
                 y_ = y_batch[:FLAGS.max_images,:]
-                y_ = np.reshape(y_*255.0, new_shape).astype(np.uint8)
-                y_hat_ = sess.run(tf.cast(tf.multiply(y_hat, 255.0), tf.uint8),
+                y_ = np.reshape((y_/0.1*0.5 + 0.5)*255.0, new_shape).astype(np.uint8)
+                y_hat_ = sess.run(tf.cast(tf.multiply(tf.add(tf.multiply(y_hat, 5.0), 0.5), 255.0), tf.uint8),
                     feed_dict={phase_train: is_train, x: x_batch, y: y_batch})
 
                 summary_str, x_summary_str, y_summary_str, y_hat_summary_str, w_summary_str = sess.run(
