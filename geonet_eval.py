@@ -55,11 +55,11 @@ def evaluate():
         # Calculate loss.
         loss = geonet_model.loss(y_hat, y)
 
-        # # Restore the moving average version of the learned variables for eval.
-        # variable_averages = tf.train.ExponentialMovingAverage(FLAGS.moving_avg_decay)
-        # variables_to_restore = variable_averages.variables_to_restore()
-        # saver = tf.train.Saver(variables_to_restore)
-        saver = tf.train.Saver()
+        # Restore the moving average version of the learned variables for eval.
+        variable_averages = tf.train.ExponentialMovingAverage(FLAGS.moving_avg_decay)
+        variables_to_restore = variable_averages.variables_to_restore()
+        saver = tf.train.Saver(variables_to_restore)
+        # saver = tf.train.Saver()
 
 
         # Build the summary writer

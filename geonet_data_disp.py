@@ -32,19 +32,21 @@ import tensorflow as tf
 
 # parameters
 FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('data_dir', 'data/displacement',
+tf.app.flags.DEFINE_string('data_dir', 'data/10FacialModels',
                            """Path to data directory.""")
-tf.app.flags.DEFINE_integer('image_width', 256,
+tf.app.flags.DEFINE_integer('image_width', 128,
                             """Image Width.""")
-tf.app.flags.DEFINE_integer('image_height', 256,
+tf.app.flags.DEFINE_integer('image_height', 128,
                             """Image Height.""")
-tf.app.flags.DEFINE_integer('batch_size', 4,
+tf.app.flags.DEFINE_integer('batch_size', 16,
                             """Number of images to process in a batch.""")
 tf.app.flags.DEFINE_integer('num_processors', 8,
                             """# of processors for batch generation.""")
-tf.app.flags.DEFINE_float('min_scale', 0.03125,
-                            """minimum of downscale factor.""")
-tf.app.flags.DEFINE_float('noise_level', 0.001,
+tf.app.flags.DEFINE_boolean('transform', True,
+                          """whether to transform or not""")
+# tf.app.flags.DEFINE_float('min_scale', 0.125,
+#                             """minimum of downscale factor.""")
+tf.app.flags.DEFINE_float('noise_level', 0.005,
                             """noise level.""")
 tf.app.flags.DEFINE_boolean('weight_on', False,
                           """whether to use weight for sharp features or not""")
@@ -61,7 +63,8 @@ class Param(object):
     def __init__(self):
         self.image_width = FLAGS.image_width
         self.image_height = FLAGS.image_height
-        self.min_scale = FLAGS.min_scale
+        self.transform = FLAGS.transform
+        # self.min_scale = FLAGS.min_scale
         self.noise_level = FLAGS.noise_level
         self.weight_on = FLAGS.weight_on
         self.weight_sigma = FLAGS.weight_sigma
@@ -146,34 +149,61 @@ def train_set(batch_id, batch, x_batch, y_batch, w_batch, FLAGS):
     x_img = Image.open(x_img_path)
     x = np.array(x_img)[:,:,0].astype(np.float) / 255.0
 
-    # downscale factor
-    np.random.seed()
-    down_scale_factor = np.random.rand()*(1 - FLAGS.min_scale) + FLAGS.min_scale # [FLAGS.min_scale, 1)
-    crop_size = int(1024*down_scale_factor)
-    
-    # random left corner
-    lc = np.random.randint(1024-crop_size, size=2)
-    x_crop = x[lc[0]:lc[0]+crop_size, lc[1]:lc[1]+crop_size]
-    
-    # random flip and rotate
-    flip = (np.random.rand() > 0.5)
-    if flip:
-        x_crop = np.fliplr(x_crop)
-    r = np.random.randint(low=-180, high=180)
-    x_crop = transform.rotate(x_crop, r, mode='symmetric')
+    if FLAGS.transform:
+        np.random.seed()
 
-    # resize
-    x_crop = transform.resize(x_crop, (FLAGS.image_height, FLAGS.image_width), mode='symmetric')
+        # random flip and rotate
+        flip = (np.random.rand() > 0.5)
+        if flip:
+            x_rotate = np.fliplr(x)
+        else:
+            x_rotate = x
+        r = np.random.rand() * 360.0
+        x_rotate = transform.rotate(x_rotate, r, order=3, mode='symmetric')
+
+        # # debug
+        # plt.figure()
+        # plt.subplot(131)
+        # plt.imshow(x, cmap=plt.cm.gray)
+        # plt.subplot(132)
+        # plt.imshow(x_rotate, cmap=plt.cm.gray)
+        # plt.subplot(133)
+        # plt.imshow(transform.rotate(x, r, resize=True, mode='symmetric'), cmap=plt.cm.gray)
+        # plt.show()
+        
+        # down_scale_factor = np.random.rand()*(1 - FLAGS.min_scale) + FLAGS.min_scale # [FLAGS.min_scale, 1)
+        # down_scale_factor = FLAGS.min_scale
+        # crop_size = int(image_size*down_scale_factor)
+        
+        # random left corner
+        image_shape = x.shape
+        lc_r = np.random.randint(image_shape[0]-FLAGS.image_height+1)
+        lc_c = np.random.randint(image_shape[1]-FLAGS.image_width+1)
+        x_crop = x_rotate[lc_r:lc_r+FLAGS.image_height, lc_c:lc_c+FLAGS.image_width]
+    else:
+        x_crop = x
 
     # transform y in the same way
     y_img = Image.open(batch[batch_id])
     y = np.array(y_img)[:,:,0].astype(np.float) / 255.0
 
-    y_crop = y[lc[0]:lc[0]+crop_size, lc[1]:lc[1]+crop_size]
-    if flip:
-        y_crop = np.fliplr(y_crop)
-    y_crop = transform.rotate(y_crop, r, mode='symmetric')
-    y_crop = transform.resize(y_crop, (FLAGS.image_height, FLAGS.image_width), order=3, mode='symmetric')
+    if FLAGS.transform:
+        if flip:
+            y_rotate = np.fliplr(y)
+        else:
+            y_rotate = y
+        y_rotate = transform.rotate(y_rotate, r, order=3, mode='symmetric')
+        y_crop = y_rotate[lc_r:lc_r+FLAGS.image_height, lc_c:lc_c+FLAGS.image_width]
+    else:
+        y_crop = y
+
+    # use clean input with a probability of 10%
+    # TODO: need to disable when evaluation
+    if np.random.rand() < 0.1:
+        x_crop = y_crop
+
+    # x_crop = transform.resize(x_crop, (FLAGS.image_height, FLAGS.image_width), order=3, mode='symmetric')
+    # y_crop = transform.resize(y_crop, (FLAGS.image_height, FLAGS.image_width), order=3, mode='symmetric')
 
     # edge detection for loss weight
     if FLAGS.weight_on:
@@ -188,18 +218,18 @@ def train_set(batch_id, batch, x_batch, y_batch, w_batch, FLAGS):
     else:
         w_crop = np.ones([FLAGS.image_height, FLAGS.image_width])
 
-    # use clean input with a probability of 10%
-    if np.random.rand() < 0.1:
-        x_crop = y_crop
-
     # # debug
     # plt.figure()
-    # plt.subplot(231)
+    # plt.subplot(121)
     # plt.imshow(x_crop, cmap=plt.cm.gray)
-    # plt.subplot(232)
+    # plt.subplot(122)
     # plt.imshow(y_crop, cmap=plt.cm.gray)
-    # plt.subplot(233)
-    # plt.imshow(w_crop, cmap=plt.cm.gray)
+    # # plt.subplot(231)
+    # # plt.imshow(x_crop, cmap=plt.cm.gray)
+    # # plt.subplot(232)
+    # # plt.imshow(y_crop, cmap=plt.cm.gray)
+    # # plt.subplot(233)
+    # # plt.imshow(w_crop, cmap=plt.cm.gray)
     # # w_crop_r = roberts(y_crop)
     # # w_crop_s = sobel(y_crop)
     # # w_crop_p = prewitt(y_crop)
@@ -209,12 +239,12 @@ def train_set(batch_id, batch, x_batch, y_batch, w_batch, FLAGS):
     # # plt.imshow(w_crop_s, cmap=plt.cm.gray)
     # # plt.subplot(236)
     # # plt.imshow(w_crop_p, cmap=plt.cm.gray)
-    # mng = plt.get_current_fig_manager()
+    # # mng = plt.get_current_fig_manager()
     # # mng.full_screen_toggle()
     # plt.show()
-    # print('x', np.amin(x_crop), np.amax(x_crop))
-    # print('y', np.amin(y_crop), np.amax(y_crop))
-    # print('w', np.amin(w_crop), np.amax(w_crop))
+    # # print('x', np.amin(x_crop), np.amax(x_crop))
+    # # print('y', np.amin(y_crop), np.amax(y_crop))
+    # # print('w', np.amin(w_crop), np.amax(w_crop))
 
     x_batch[batch_id,:,:,0] = x_crop
     y_batch[batch_id,:,:,0] = y_crop
@@ -252,20 +282,27 @@ if __name__ == '__main__':
     # parameters 
     tf.app.flags.DEFINE_string('file_list', 'train.txt', """file_list""")
     FLAGS.num_processors = 1
+    # # eval
+    # FLAGS.file_list = 'test.txt'
+    # FLAGS.image_height = 1024
+    # FLAGS.image_width = 1024
+    # FLAGS.transform = False
+    # FLAGS.min_scale = 1.0
+    # FLAGS.batch_size = 1
     
     # split_dataset()
 
     batch_manager = BatchManager()
     x_batch, y_batch, w_batch = batch_manager.batch()
 
-    plt.figure()        
+    plt.figure()
     for i in xrange(FLAGS.batch_size):
-        plt.subplot(131)
+        plt.subplot(121)
         plt.imshow(np.reshape(x_batch[i,:], [FLAGS.image_height, FLAGS.image_width]), cmap=plt.cm.gray)
-        plt.subplot(132)
+        plt.subplot(122)
         plt.imshow(np.reshape(y_batch[i,:], [FLAGS.image_height, FLAGS.image_width]), cmap=plt.cm.gray)
-        plt.subplot(133)
-        plt.imshow(np.reshape(w_batch[i,:], [FLAGS.image_height, FLAGS.image_width]), cmap=plt.cm.gray)
+        # plt.subplot(133)
+        # plt.imshow(np.reshape(w_batch[i,:], [FLAGS.image_height, FLAGS.image_width]), cmap=plt.cm.gray)
         plt.show()
 
     print('Done')
