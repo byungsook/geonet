@@ -151,8 +151,8 @@ def train_set(batch_id, batch, x_batch, y_batch, w_batch, FLAGS):
         x_img = Image.open(x_path)
         x = np.array(x_img)[:,:,0].astype(np.float) / 255.0
     else:
-        # RANGE_MAX = 0.1
-        x = scipy.io.loadmat(x_path)['result'] # / RANGE_MAX * 0.5 + 0.5 # [0, 1]
+        RANGE_MAX = 0.075
+        x = scipy.io.loadmat(x_path)['result'] / RANGE_MAX * 0.5 + 0.5 # [0, 1]
         # print(x_path, np.amin(x), np.amax(x), np.average(x))
 
     if FLAGS.transform:
@@ -194,7 +194,7 @@ def train_set(batch_id, batch, x_batch, y_batch, w_batch, FLAGS):
         y_img = Image.open(batch[batch_id])
         y = np.array(y_img)[:,:,0].astype(np.float) / 255.0
     else:
-        y = scipy.io.loadmat(batch[batch_id])['result'] # / RANGE_MAX * 0.5 + 0.5 # [0, 1]
+        y = scipy.io.loadmat(batch[batch_id])['result'] / RANGE_MAX * 0.5 + 0.5 # [0, 1]
         # print(batch[batch_id], np.amin(y), np.amax(y), np.average(y))
 
     if FLAGS.transform:
@@ -228,9 +228,9 @@ def train_set(batch_id, batch, x_batch, y_batch, w_batch, FLAGS):
     # # debug
     # plt.figure()
     # plt.subplot(121)
-    # plt.imshow(x_crop, cmap=plt.cm.gray, clim=(-0.1, 0.1))
+    # plt.imshow(x_crop, cmap=plt.cm.gray, clim=(0.0, 1.0))
     # plt.subplot(122)
-    # plt.imshow(y_crop, cmap=plt.cm.gray, clim=(-0.1, 0.1))
+    # plt.imshow(y_crop, cmap=plt.cm.gray, clim=(0.0, 1.0))
     # # plt.subplot(231)
     # # plt.imshow(x_crop, cmap=plt.cm.gray)
     # # plt.subplot(232)
@@ -287,7 +287,7 @@ if __name__ == '__main__':
         os.chdir(working_path)
 
     # parameters 
-    tf.app.flags.DEFINE_string('file_list', 'test_mat.txt', """file_list""")
+    tf.app.flags.DEFINE_string('file_list', 'train_mat.txt', """file_list""")
     FLAGS.num_processors = 1
     # # eval
     # FLAGS.file_list = 'test.txt'
@@ -305,9 +305,9 @@ if __name__ == '__main__':
     plt.figure()
     for i in xrange(FLAGS.batch_size):
         plt.subplot(121)
-        plt.imshow(np.reshape(x_batch[i,:], [FLAGS.image_height, FLAGS.image_width]), cmap=plt.cm.gray, clim=(-0.1, 0.1))
+        plt.imshow(np.reshape(x_batch[i,:], [FLAGS.image_height, FLAGS.image_width]), cmap=plt.cm.gray, clim=(0.0, 1.0))
         plt.subplot(122)
-        plt.imshow(np.reshape(y_batch[i,:], [FLAGS.image_height, FLAGS.image_width]), cmap=plt.cm.gray, clim=(-0.1, 0.1))
+        plt.imshow(np.reshape(y_batch[i,:], [FLAGS.image_height, FLAGS.image_width]), cmap=plt.cm.gray, clim=(0.0, 1.0))
         # plt.subplot(133)
         # plt.imshow(np.reshape(w_batch[i,:], [FLAGS.image_height, FLAGS.image_width]), cmap=plt.cm.gray, clim=(0.0, 1.0))
         plt.show()

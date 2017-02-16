@@ -180,10 +180,10 @@ def train():
             if step % FLAGS.summary_steps == 0 or step < 100:
                 new_shape = [FLAGS.max_images, FLAGS.image_height, FLAGS.image_width, 1]
                 x_ = x_batch[:FLAGS.max_images,:]
-                x_ = np.reshape((x_/0.1*0.5 + 0.5)*255.0, new_shape).astype(np.uint8)
+                x_ = np.reshape(x_*255.0, new_shape).astype(np.uint8)
                 y_ = y_batch[:FLAGS.max_images,:]
-                y_ = np.reshape((y_/0.1*0.5 + 0.5)*255.0, new_shape).astype(np.uint8)
-                y_hat_ = sess.run(tf.cast(tf.multiply(tf.add(tf.multiply(y_hat, 5.0), 0.5), 255.0), tf.uint8),
+                y_ = np.reshape(y_*255.0, new_shape).astype(np.uint8)
+                y_hat_ = sess.run(tf.cast(tf.multiply(y_hat, 255.0), tf.uint8),
                     feed_dict={phase_train: is_train, x: x_batch, y: y_batch})
 
                 summary_str, x_summary_str, y_summary_str, y_hat_summary_str, w_summary_str = sess.run(

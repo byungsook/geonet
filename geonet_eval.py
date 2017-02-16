@@ -96,14 +96,14 @@ def evaluate():
             for step in range(num_iter):
                 start_time = time.time()
                 x_batch, y_batch, _ = batch_manager.batch()
-                y_hat_, loss_value = sess.run([tf.cast(tf.tf.multiply(tf.add(tf.multiply(y_hat, 5.0), 0.5), 255.0), tf.uint8), loss], 
+                y_hat_, loss_value = sess.run([tf.cast(tf.multiply(y_hat, 255.0), tf.uint8), loss], 
                                                    feed_dict={phase_train: is_train, x: x_batch, y: y_batch})
 
                 new_shape = [FLAGS.max_images, FLAGS.image_height, FLAGS.image_width, 1]
                 x_ = x_batch[:FLAGS.max_images,:]
-                x_ = np.reshape((x_/0.1*0.5 + 0.5)*255.0, new_shape).astype(np.uint8)
+                x_ = np.reshape(x_*255.0, new_shape).astype(np.uint8)
                 y_ = y_batch[:FLAGS.max_images,:]
-                y_ = np.reshape((y_/0.1*0.5 + 0.5)*255.0, new_shape).astype(np.uint8)
+                y_ = np.reshape(y_*255.0, new_shape).astype(np.uint8)
 
                 total_loss += loss_value
                 duration = time.time() - start_time
