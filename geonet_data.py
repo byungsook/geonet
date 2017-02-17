@@ -33,7 +33,7 @@ import tensorflow as tf
 
 # parameters
 FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('data_dir', 'data/10FacialModels',
+tf.app.flags.DEFINE_string('data_dir', 'data/10FacialModels_whole',
                            """Path to data directory.""")
 tf.app.flags.DEFINE_integer('image_width', 128,
                             """Image Width.""")
