@@ -1,5 +1,10 @@
 @echo on
 :::: 14-02-17 Tue., eval with new displacement maps
+python geonet_eval.py --eval_dir=eval/face_128 --pretrained_model_checkpoint_path=log/face_128/geonet.ckpt --data_dir=data/10FacialModels --file_list=test_mat.txt --batch_size=16 --max_images=16 --num_epoch=10 --image_width=128 --image_height=128 --transform=True
+::python geonet_eval.py --eval_dir=eval/face_128 --pretrained_model_checkpoint_path=log/face_128/geonet.ckpt --data_dir=data/10FacialModels --file_list=test_mat.txt --batch_size=1 --max_images=1 --num_epoch=1 --image_width=1024 --image_height=1024 --transform=False :: around 32 
+
+
+:::: 14-02-17 Tue., eval with new displacement maps
 ::python geonet_eval.py --eval_dir=eval/new_disp2 --pretrained_model_checkpoint_path=log/new_disp2/geonet.ckpt --data_dir=data/displacement --batch_size=1 --max_images=1 --num_epoch=1 --image_width=1024 --image_height=1024 --file_list=test.txt --transform=False --min_scale=1.0 :: 36450? overfit..
 ::python geonet_eval.py --eval_dir=eval/new_disp3 --pretrained_model_checkpoint_path=log/new_disp3/geonet.ckpt --data_dir=data/displacement --batch_size=1 --max_images=1 --num_epoch=1 --image_width=1024 --image_height=1024 --file_list=test.txt --transform=False --min_scale=1.0 :: 36497? overfit..
 ::python geonet_eval.py --eval_dir=eval/new_disp2_patch --pretrained_model_checkpoint_path=log/new_disp2/geonet.ckpt --data_dir=data/displacement --batch_size=4 --max_images=4 --num_epoch=50 --image_width=256 --image_height=256 --file_list=test.txt --transform=True --min_scale=0.03125 :: 7799? overfit.. it is supposed to be around 100

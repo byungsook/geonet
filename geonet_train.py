@@ -52,6 +52,8 @@ tf.app.flags.DEFINE_integer('save_steps', 5000,
                             """save steps""")
 tf.app.flags.DEFINE_string('file_list', 'train_mat.txt',
                            """file_list""")
+tf.app.flags.DEFINE_boolean('is_train', True,
+                            """whether it is training or not""")
 
 
 def train():
@@ -60,7 +62,6 @@ def train():
         batch_manager = geonet_data.BatchManager()
         print('%s: %d files' % (datetime.now(), batch_manager.num_examples_per_epoch))
 
-        is_train = True
         phase_train = tf.placeholder(tf.bool, name='phase_train')
 
         x = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.image_height, FLAGS.image_width, 1])
@@ -135,7 +136,7 @@ def train():
             print('%s: Pre-trained model restored from %s' %
                 (datetime.now(), FLAGS.pretrained_model_checkpoint_path))
         else:
-            sess.run(tf.global_variables_initializer(), feed_dict={phase_train: is_train})
+            sess.run(tf.global_variables_initializer(), feed_dict={phase_train: FLAGS.is_train})
 
         # Build the summary operation.
         summary_op = tf.summary.merge_all()
@@ -161,10 +162,10 @@ def train():
             start_time = time.time()
             x_batch, y_batch, w_batch = batch_manager.batch()
             if FLAGS.weight_on:
-                _, loss_value = sess.run([train_op, loss], feed_dict={phase_train: is_train,
+                _, loss_value = sess.run([train_op, loss], feed_dict={phase_train: FLAGS.is_train,
                                                                   x: x_batch, y: y_batch, w: w_batch})
             else:
-                _, loss_value = sess.run([train_op, loss], feed_dict={phase_train: is_train,
+                _, loss_value = sess.run([train_op, loss], feed_dict={phase_train: FLAGS.is_train,
                                                                   x: x_batch, y: y_batch})
             duration = time.time() - start_time
 
@@ -184,11 +185,11 @@ def train():
                 y_ = y_batch[:FLAGS.max_images,:]
                 y_ = np.reshape(y_*255.0, new_shape).astype(np.uint8)
                 y_hat_ = sess.run(tf.cast(tf.multiply(y_hat, 255.0), tf.uint8),
-                    feed_dict={phase_train: is_train, x: x_batch, y: y_batch})
+                    feed_dict={phase_train: FLAGS.is_train, x: x_batch, y: y_batch})
 
                 summary_str, x_summary_str, y_summary_str, y_hat_summary_str, w_summary_str = sess.run(
                     [summary_op, x_summary, y_summary, y_hat_summary, w_summary],
-                    feed_dict={phase_train: is_train, x: x_batch, y: y_batch, w: w_batch,
+                    feed_dict={phase_train: FLAGS.is_train, x: x_batch, y: y_batch, w: w_batch,
                                x_u8: x_, y_u8: y_, y_hat_u8: y_hat_})
                 summary_writer.add_summary(summary_str, step)
                 

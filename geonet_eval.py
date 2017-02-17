@@ -35,6 +35,8 @@ tf.app.flags.DEFINE_string('file_list', 'test.txt',
                            """file_list""")
 tf.app.flags.DEFINE_integer('num_epoch', 1, # 10
                             """# epoch""")
+tf.app.flags.DEFINE_boolean('is_train', False,
+                            """whether it is training or not""")
 
 
 def evaluate():
@@ -43,7 +45,6 @@ def evaluate():
         print('%s: %d files' % (datetime.now(), batch_manager.num_examples_per_epoch))
 
         global_step = tf.Variable(0, name='global_step', trainable=False)
-        is_train = False
         phase_train = tf.placeholder(tf.bool, name='phase_train')
 
         x = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.image_height, FLAGS.image_width, 1])
@@ -97,7 +98,7 @@ def evaluate():
                 start_time = time.time()
                 x_batch, y_batch, _ = batch_manager.batch()
                 y_hat_, loss_value = sess.run([tf.cast(tf.multiply(y_hat, 255.0), tf.uint8), loss], 
-                                                   feed_dict={phase_train: is_train, x: x_batch, y: y_batch})
+                                                   feed_dict={phase_train: FLAGS.is_train, x: x_batch, y: y_batch})
 
                 new_shape = [FLAGS.max_images, FLAGS.image_height, FLAGS.image_width, 1]
                 x_ = x_batch[:FLAGS.max_images,:]

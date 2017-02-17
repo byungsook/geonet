@@ -69,6 +69,7 @@ class Param(object):
         self.noise_level = FLAGS.noise_level
         self.weight_on = FLAGS.weight_on
         self.weight_sigma = FLAGS.weight_sigma
+        self.is_train = FLAGS.is_train
 
 
 class BatchManager(object):
@@ -187,6 +188,7 @@ def train_set(batch_id, batch, x_batch, y_batch, w_batch, FLAGS):
         lc_c = np.random.randint(image_shape[1]-FLAGS.image_width+1)
         x_crop = x_rotate[lc_r:lc_r+FLAGS.image_height, lc_c:lc_c+FLAGS.image_width]
     else:
+        assert(x.shape[0] == FLAGS.image_height and x.shape[1] == FLAGS.image_width)
         x_crop = x
 
     # transform y in the same way
@@ -205,11 +207,12 @@ def train_set(batch_id, batch, x_batch, y_batch, w_batch, FLAGS):
         y_rotate = transform.rotate(y_rotate, r, order=3, mode='symmetric')
         y_crop = y_rotate[lc_r:lc_r+FLAGS.image_height, lc_c:lc_c+FLAGS.image_width]
     else:
+        assert(y.shape[0] == FLAGS.image_height and y.shape[1] == FLAGS.image_width)
         y_crop = y
 
     # use clean input with a probability of 10%
     # TODO: need to disable when evaluation
-    if np.random.rand() < 0.1:
+    if FLAGS.is_train and np.random.rand() < 0.1:
         x_crop = y_crop
 
     # edge detection for loss weight
@@ -288,13 +291,14 @@ if __name__ == '__main__':
 
     # parameters 
     tf.app.flags.DEFINE_string('file_list', 'train_mat.txt', """file_list""")
+    tf.app.flags.DEFINE_boolean('is_train', True, """is train""")
     FLAGS.num_processors = 1
     # # eval
-    # FLAGS.file_list = 'test.txt'
+    # FLAGS.file_list = 'test_mat.txt'
+    # FLAGS.is_train = False
     # FLAGS.image_height = 1024
     # FLAGS.image_width = 1024
     # FLAGS.transform = False
-    # FLAGS.min_scale = 1.0
     # FLAGS.batch_size = 1
     
     # split_dataset()
