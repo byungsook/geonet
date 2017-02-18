@@ -16,6 +16,7 @@ import math
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import numpy as np
 import scipy.io
+import scipy.misc
 from PIL import Image
 import matplotlib.pyplot as plt
 import tensorflow as tf
@@ -25,7 +26,7 @@ import geonet_model
 
 # parameters
 FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('result_dir', 'result/test',
+tf.app.flags.DEFINE_string('result_dir', 'result/face_128_1024',
                            """Directory where to write event logs """
                            """and checkpoint.""")
 tf.app.flags.DEFINE_string('data_dir', 'data/10FacialModels',
@@ -172,8 +173,9 @@ def run():
 
         # if there is ground truth
         if len(gt_path_list) > 0:
-            y_img = Image.open(gt_path_list[file_id])
-            y_gt = np.array(y_img)[:,:,0].astype(np.float) / 255.0
+            # y_img = Image.open(gt_path_list[file_id])
+            # y_gt = np.array(y_img)[:,:,0].astype(np.float) / 255.0
+            y_gt = scipy.io.loadmat(gt_path_list[file_id])['result'] / RANGE_MAX * 0.5 + 0.5 # [0, 1]
         else:
             y_gt = None
 
@@ -228,7 +230,12 @@ def run():
         # plt.imshow(y, cmap=plt.cm.gray)
         # plt.show()
 
-        # save result
+        # save displacement map image result
+        output_path = os.path.join(FLAGS.result_dir, file_name + '.png')
+        scipy.misc.imsave(output_path, (y*255).astype(np.uint8))
+
+        # save displacement map result
+        y = (y - 0.5) * 2.0 * RANGE_MAX
         output_path = os.path.join(FLAGS.result_dir, file_name + '.mat')
         scipy.io.savemat(output_path, dict(y=y))
 
