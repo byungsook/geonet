@@ -28,12 +28,12 @@ FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string('result_dir', 'result/test',
                            """Directory where to write event logs """
                            """and checkpoint.""")
-tf.app.flags.DEFINE_string('data_dir', 'data/displacement',
+tf.app.flags.DEFINE_string('data_dir', 'data/10FacialModels',
                            """Directory where to write event logs """
                            """and checkpoint.""")
-tf.app.flags.DEFINE_string('file_list', 'train.txt',
+tf.app.flags.DEFINE_string('file_list', 'test_mat.txt',
                            """file_list""")
-tf.app.flags.DEFINE_string('pretrained_model_checkpoint_path', 'log/test/geonet.ckpt',
+tf.app.flags.DEFINE_string('pretrained_model_checkpoint_path', 'log/face_128/geonet.ckpt',
                            """If specified, restore this pretrained model.""")
 tf.app.flags.DEFINE_float('moving_avg_decay', 0.9999,
                           """The decay to use for the moving average.""")
@@ -41,7 +41,7 @@ tf.app.flags.DEFINE_integer('crop_size', 1024, # 128
                           """crop size.""")
 tf.app.flags.DEFINE_integer('batch_size', 1, # 16
                           """batch size.""")
-tf.app.flags.DEFINE_float('noise_level', 0.001,
+tf.app.flags.DEFINE_float('noise_level', 0.005,
                             """noise level.""")
 
 
@@ -163,11 +163,12 @@ def run():
         f.write('%s: %d/%d-%s start to process\n' % (datetime.now(), file_id+1, num_files, file_name))
         
         # matrix input
-        # x = scipy.io.loadmat(file_path)
-            
-        # image input
-        x_img = Image.open(file_path)
-        x = np.array(x_img)[:,:,0].astype(np.float) / 255.0
+        RANGE_MAX = 0.075
+        x = scipy.io.loadmat(file_path)['result'] / RANGE_MAX * 0.5 + 0.5 # [0, 1]
+
+        # # image input
+        # x_img = Image.open(file_path)
+        # x = np.array(x_img)[:,:,0].astype(np.float) / 255.0
 
         # if there is ground truth
         if len(gt_path_list) > 0:
