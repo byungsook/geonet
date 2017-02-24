@@ -26,15 +26,15 @@ import geonet_model
 
 # parameters
 FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('result_dir', 'result/face_128_1024',
+tf.app.flags.DEFINE_string('result_dir', 'result/face_whole_0.01_128',
                            """Directory where to write event logs """
                            """and checkpoint.""")
-tf.app.flags.DEFINE_string('data_dir', 'data/10FacialModels',
+tf.app.flags.DEFINE_string('data_dir', 'data/10FacialModels_whole',
                            """Directory where to write event logs """
                            """and checkpoint.""")
 tf.app.flags.DEFINE_string('file_list', 'test_mat.txt',
                            """file_list""")
-tf.app.flags.DEFINE_string('pretrained_model_checkpoint_path', 'log/face_128/geonet.ckpt',
+tf.app.flags.DEFINE_string('pretrained_model_checkpoint_path', 'log/face_whole_0.01_128/geonet.ckpt-100000',
                            """If specified, restore this pretrained model.""")
 tf.app.flags.DEFINE_float('moving_avg_decay', 0.9999,
                           """The decay to use for the moving average.""")
@@ -42,61 +42,8 @@ tf.app.flags.DEFINE_integer('crop_size', 1024, # 128
                           """crop size.""")
 tf.app.flags.DEFINE_integer('batch_size', 1, # 16
                           """batch size.""")
-tf.app.flags.DEFINE_float('noise_level', 0.005,
+tf.app.flags.DEFINE_float('noise_level', 0.01,
                             """noise level.""")
-
-
-def process(sess, x, y_=None):
-    x_shape = x.shape
-    assert(x_shape[0] % FLAGS.crop_size == 0 and x_shape[1] % FLAGS.crop_size == 0)
-
-    x_batch = np.zeros([FLAGS.batch_size, FLAGS.crop_size, FLAGS.crop_size, 1], dtype=np.float)
-    y = np.zeros(x_shape, dtype=np.float)
-    batch_id = 0
-    batch_position = []
-
-    for r in range(x_shape[0]//FLAGS.crop_size):
-        for c in range(x_shape[1]//FLAGS.crop_size):
-            r0 = r * FLAGS.crop_size
-            r1 = r0 + FLAGS.crop_size
-            c0 = c * FLAGS.crop_size
-            c1 = c0 + FLAGS.crop_size
-            x_batch[batch_id,:,:,0] = x[r0:r1,c0:c1]
-            batch_position.append([r0,r1,c0,c1])
-            batch_id += 1
-            batch_id %= FLAGS.batch_size
-            if batch_id == 0:
-                y_hat_batch = sess.run(y_hat, feed_dict={phase_train: is_train, x_ph: x_batch})
-                for i in xrange(FLAGS.batch_size):
-                    r0 = batch_position[i][0]
-                    r1 = batch_position[i][1]
-                    c0 = batch_position[i][2]
-                    c1 = batch_position[i][3]
-                    y[r0:r1,c0:c1] = y_hat_batch[i,:,:,0]
-                batch_position.clear()
-    
-    if batch_id != 0:
-        y_hat_batch = sess.run(y_hat, feed_dict={phase_train: is_train, x_ph: x_batch})
-        for i in xrange(batch_id):
-            r0 = batch_position[i][0]
-            r1 = batch_position[i][1]
-            c0 = batch_position[i][2]
-            c1 = batch_position[i][3]
-            y[r0:r1,c0:c1] = y_hat_batch[i,:,:,0]
-
-    if y_ is not None:
-        l2_loss = np.sum((y - y_)**2) * 0.5
-        print('l2_loss: %.3f' % l2_loss)
-
-    # # debug
-    # plt.figure()
-    # plt.subplot(121)
-    # plt.imshow(x, cmap=plt.cm.gray)
-    # plt.subplot(122)
-    # plt.imshow(y, cmap=plt.cm.gray)
-    # plt.show()
-
-    return y
 
 
 def run():
