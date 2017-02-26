@@ -1,5 +1,11 @@
+# 26-02-17 Sun., re-train on noise 0.005 patch size 128 with batch 16, 10 faces, whole gaussian noise
+python geonet_train.py --log_dir=log/face_whole_0.005_128_2 --data_dir=data/10FacialModels_whole --file_list=train_mat.txt --batch_size=16 --image_width=128 --image_height=128 --max_steps=100000 --initial_learning_rate=0.01 --decay_steps=40000 --transform=True --noise_level=0.005 --weight_on=False --pretrained_model_checkpoint_path=log/face_whole_0.005_128/geonet.ckpt
+
+# # 26-02-17 Sun., re-train on noise 0.010 patch size 128 with batch 16, 10 faces, whole gaussian noise
+# python geonet_train.py --log_dir=log/face_whole_0.01_128_2 --data_dir=data/10FacialModels_whole --file_list=train_mat.txt --batch_size=16 --image_width=128 --image_height=128 --max_steps=100000 --initial_learning_rate=0.01 --decay_steps=40000 --transform=True --noise_level=0.010 --weight_on=False
+
 # 24-02-17 Fri., re-train on noise 0.005 patch size 32 with batch 16, 10 faces, whole gaussian noise
-python geonet_train.py --log_dir=log/face_whole_32_2  --data_dir=data/10FacialModels_whole --file_list=train_mat.txt --batch_size=16 --image_width=32 --image_height=32   --max_steps=100000 --initial_learning_rate=0.01 --decay_steps=40000 --transform=True --noise_level=0.005 --weight_on=False
+# python geonet_train.py --log_dir=log/face_whole_32_2  --data_dir=data/10FacialModels_whole --file_list=train_mat.txt --batch_size=16 --image_width=32 --image_height=32   --max_steps=100000 --initial_learning_rate=0.01 --decay_steps=40000 --transform=True --noise_level=0.005 --weight_on=False
 
 # 21-02-17 Tue., train on noise 0.01, patch size 128, 64, 32 with batch 16, 10 faces, whole gaussian noise
 # python geonet_train.py --log_dir=log/face_whole_0.01_128 --data_dir=data/10FacialModels_whole --file_list=train_mat.txt --batch_size=16 --image_width=128 --image_height=128 --max_steps=100000 --initial_learning_rate=0.01 --decay_steps=40000 --transform=True --noise_level=0.010 --weight_on=False
