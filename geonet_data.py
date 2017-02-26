@@ -211,7 +211,6 @@ def train_set(batch_id, batch, x_batch, y_batch, w_batch, FLAGS):
         y_crop = y
 
     # use clean input with a probability of 10%
-    # TODO: need to disable when evaluation
     if FLAGS.is_train and np.random.rand() < 0.1:
         x_crop = y_crop
 
