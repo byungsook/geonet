@@ -26,7 +26,7 @@ import geonet_model
 
 # parameters
 FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('result_dir', 'result/face_whole_0.01_128',
+tf.app.flags.DEFINE_string('result_dir', 'result/face_whole_0.01_32',
                            """Directory where to write event logs """
                            """and checkpoint.""")
 tf.app.flags.DEFINE_string('data_dir', 'data/10FacialModels_whole',
@@ -34,7 +34,7 @@ tf.app.flags.DEFINE_string('data_dir', 'data/10FacialModels_whole',
                            """and checkpoint.""")
 tf.app.flags.DEFINE_string('file_list', 'test_mat.txt',
                            """file_list""")
-tf.app.flags.DEFINE_string('pretrained_model_checkpoint_path', 'log/face_whole_0.01_128/geonet.ckpt-100000',
+tf.app.flags.DEFINE_string('pretrained_model_checkpoint_path', 'log/face_whole_0.01_32/geonet.ckpt-100000',
                            """If specified, restore this pretrained model.""")
 tf.app.flags.DEFINE_float('moving_avg_decay', 0.9999,
                           """The decay to use for the moving average.""")
@@ -153,7 +153,7 @@ def run():
                         c0 = batch_position[i][2]
                         c1 = batch_position[i][3]
                         y[r0:r1,c0:c1] = y_hat_batch[i,:,:,0]
-                    batch_position.clear()
+                    del batch_position[:]
         
         if batch_id != 0:
             y_hat_batch = sess.run(y_hat, feed_dict={phase_train: is_train, x_ph: x_batch})
