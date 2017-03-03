@@ -25,6 +25,7 @@ from PIL import Image
 from skimage import transform
 from skimage import feature
 from skimage.filters import roberts, sobel, scharr, prewitt
+# from skimage.feature import canny
 from scipy import stats
 import scipy.io
 
@@ -47,11 +48,11 @@ tf.app.flags.DEFINE_boolean('transform', True,
                           """whether to transform or not""")
 # tf.app.flags.DEFINE_float('min_scale', 0.125,
 #                             """minimum of downscale factor.""")
-tf.app.flags.DEFINE_float('noise_level', 0.005,
+tf.app.flags.DEFINE_float('noise_level', 0.010,
                             """noise level.""")
-tf.app.flags.DEFINE_boolean('weight_on', False,
+tf.app.flags.DEFINE_boolean('weight_on', True,
                           """whether to use weight for sharp features or not""")
-tf.app.flags.DEFINE_float('weight_sigma', 0.7,
+tf.app.flags.DEFINE_float('weight_sigma', 0.5,
                           """sigma for weight kernel""")
 
 
@@ -217,11 +218,13 @@ def train_set(batch_id, batch, x_batch, y_batch, w_batch, FLAGS):
     # edge detection for loss weight
     if FLAGS.weight_on:
         w_crop = scharr(y_crop)
+        # w_crop = canny(y_crop) # worse for this case
         # w_crop += 1
         w_crop /= np.amax(w_crop) # [0 1]
         # w_crop = scipy.stat.threshold(w_crop, threshmin=0.5, threshmax=1, newval=0)
-        w_crop = np.exp(-0.5 * ((1.0-w_crop) / FLAGS.weight_sigma)**2)
-        # w_crop += 1 # [1 2]
+        if FLAGS.weight_sigma > 0:
+            w_crop = np.exp(-0.5 * ((1.0-w_crop) / FLAGS.weight_sigma)**2)
+        w_crop += 1 # [1 2]
         # w_crop *= 1000 # [0 1000]
         # w_crop += 1 # [1 1001]
     else:
@@ -229,25 +232,28 @@ def train_set(batch_id, batch, x_batch, y_batch, w_batch, FLAGS):
 
     # # debug
     # plt.figure()
-    # plt.subplot(121)
-    # plt.imshow(x_crop, cmap=plt.cm.gray, clim=(0.0, 1.0))
-    # plt.subplot(122)
-    # plt.imshow(y_crop, cmap=plt.cm.gray, clim=(0.0, 1.0))
-    # # plt.subplot(231)
-    # # plt.imshow(x_crop, cmap=plt.cm.gray)
-    # # plt.subplot(232)
-    # # plt.imshow(y_crop, cmap=plt.cm.gray)
-    # # plt.subplot(233)
-    # # plt.imshow(w_crop, cmap=plt.cm.gray)
-    # # w_crop_r = roberts(y_crop)
-    # # w_crop_s = sobel(y_crop)
-    # # w_crop_p = prewitt(y_crop)
-    # # plt.subplot(234)
-    # # plt.imshow(w_crop_r, cmap=plt.cm.gray)
-    # # plt.subplot(235)
-    # # plt.imshow(w_crop_s, cmap=plt.cm.gray)
-    # # plt.subplot(236)
-    # # plt.imshow(w_crop_p, cmap=plt.cm.gray)
+    # # plt.subplot(121)
+    # # plt.imshow(x_crop, cmap=plt.cm.gray, clim=(0.0, 1.0))
+    # # plt.subplot(122)
+    # # plt.imshow(y_crop, cmap=plt.cm.gray, clim=(0.0, 1.0))
+    # plt.subplot(231)
+    # plt.imshow(x_crop, cmap=plt.cm.gray)
+    # plt.subplot(232)
+    # plt.imshow(y_crop, cmap=plt.cm.gray)
+    # plt.subplot(233)
+    # plt.imshow(w_crop, cmap=plt.cm.gray)
+    # w_crop_r = roberts(y_crop)
+    # w_crop_s = sobel(y_crop)
+    # w_crop_p = prewitt(y_crop)
+    # # w_crop_r = canny(y_crop, sigma=0.1)
+    # # w_crop_s = canny(y_crop, sigma=0.3)
+    # # w_crop_r = canny(y_crop, sigma=0.7)
+    # plt.subplot(234)
+    # plt.imshow(w_crop_r, cmap=plt.cm.gray)
+    # plt.subplot(235)
+    # plt.imshow(w_crop_s, cmap=plt.cm.gray)
+    # plt.subplot(236)
+    # plt.imshow(w_crop_p, cmap=plt.cm.gray)
     # # mng = plt.get_current_fig_manager()
     # # mng.full_screen_toggle()
     # plt.show()
