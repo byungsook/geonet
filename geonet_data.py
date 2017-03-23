@@ -40,7 +40,7 @@ tf.app.flags.DEFINE_integer('image_width', 128,
                             """Image Width.""")
 tf.app.flags.DEFINE_integer('image_height', 128,
                             """Image Height.""")
-tf.app.flags.DEFINE_integer('batch_size', 16,
+tf.app.flags.DEFINE_integer('batch_size', 8,
                             """Number of images to process in a batch.""")
 tf.app.flags.DEFINE_integer('num_processors', 8,
                             """# of processors for batch generation.""")
@@ -50,7 +50,7 @@ tf.app.flags.DEFINE_boolean('transform', True,
 #                             """minimum of downscale factor.""")
 tf.app.flags.DEFINE_float('noise_level', 0.010,
                             """noise level.""")
-tf.app.flags.DEFINE_boolean('weight_on', True,
+tf.app.flags.DEFINE_boolean('weight_on', False,
                           """whether to use weight for sharp features or not""")
 tf.app.flags.DEFINE_float('weight_sigma', 0.5,
                           """sigma for weight kernel""")

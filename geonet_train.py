@@ -64,12 +64,12 @@ def train():
 
         phase_train = tf.placeholder(tf.bool, name='phase_train')
 
-        x = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.image_height, FLAGS.image_width, 1])
-        y = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.image_height, FLAGS.image_width, 1])
-        w = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.image_height, FLAGS.image_width, 1])
+        x = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1])
+        y = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1])
+        w = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1])
 
         # Build a Graph that computes the logits predictions from the inference model.
-        y_hat = geonet_model.inference(x, phase_train)
+        y_hat = geonet_model.inference(x, phase_train, model=2)
 
         # Calculate loss.
         if FLAGS.weight_on:
