@@ -30,6 +30,8 @@ tf.app.flags.DEFINE_string('pretrained_model_checkpoint_path', '',
                            """If specified, restore this pretrained model """
                            """before beginning any training.
                            e.g. log/test/geonet.ckpt """)
+tf.app.flags.DEFINE_integer('model', 2, # [1-2]
+                            """type of training model.""")
 tf.app.flags.DEFINE_integer('max_steps', 10, # 20000
                             """Number of batches to run.""")
 tf.app.flags.DEFINE_integer('decay_steps', 30000,
@@ -69,7 +71,7 @@ def train():
         w = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1])
 
         # Build a Graph that computes the logits predictions from the inference model.
-        y_hat = geonet_model.inference(x, phase_train, model=2)
+        y_hat = geonet_model.inference(x, phase_train, model=FLAGS.model)
 
         # Calculate loss.
         if FLAGS.weight_on:

@@ -27,6 +27,8 @@ tf.app.flags.DEFINE_string('eval_dir', 'eval/test',
                            """and checkpoint.""")
 tf.app.flags.DEFINE_string('pretrained_model_checkpoint_path', 'log/test/geonet.ckpt',
                            """If specified, restore this pretrained model.""")
+tf.app.flags.DEFINE_integer('model', 2, # [1-2]
+                            """type of training model.""")
 tf.app.flags.DEFINE_float('moving_avg_decay', 0.9999,
                           """The decay to use for the moving average.""")
 tf.app.flags.DEFINE_integer('max_images', 8,
@@ -47,11 +49,11 @@ def evaluate():
         global_step = tf.Variable(0, name='global_step', trainable=False)
         phase_train = tf.placeholder(tf.bool, name='phase_train')
 
-        x = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.image_height, FLAGS.image_width, 1])
-        y = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.image_height, FLAGS.image_width, 1])
+        x = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1])
+        y = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1])
         
         # Build a Graph that computes the logits predictions from the inference model.
-        y_hat = geonet_model.inference(x, phase_train)
+        y_hat = geonet_model.inference(x, phase_train, model=FLAGS.model)
 
         # Calculate loss.
         loss = geonet_model.loss(y_hat, y)
