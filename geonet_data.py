@@ -34,7 +34,7 @@ import tensorflow as tf
 
 # parameters
 FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('data_dir', 'data/10FacialModels_whole',
+tf.app.flags.DEFINE_string('data_dir', 'data/faces_low_res/maps/100k/original',
                            """Path to data directory.""")
 tf.app.flags.DEFINE_integer('image_width', 128,
                             """Image Width.""")
@@ -48,7 +48,7 @@ tf.app.flags.DEFINE_boolean('transform', True,
                           """whether to transform or not""")
 # tf.app.flags.DEFINE_float('min_scale', 0.125,
 #                             """minimum of downscale factor.""")
-tf.app.flags.DEFINE_float('noise_level', 0.010,
+tf.app.flags.DEFINE_string('noise_level', 'n1',
                             """noise level.""")
 tf.app.flags.DEFINE_boolean('weight_on', False,
                           """whether to use weight for sharp features or not""")
@@ -148,7 +148,9 @@ class BatchManager(object):
 
 
 def train_set(batch_id, batch, x_batch, y_batch, w_batch, FLAGS):
-    x_path = batch[batch_id][:-4] + ('_%.3f' % FLAGS.noise_level) + batch[batch_id][-4:]
+    # x_path = batch[batch_id][:-4] + ('_%s' % FLAGS.noise_level) + batch[batch_id][-4:]
+    dir_path, file_path = os.path.split(batch[batch_id])
+    x_path = dir_path + ('/../%s/' % FLAGS.noise_level)  + file_path[:-4] + ('_%s' % FLAGS.noise_level) + file_path[-4:]
     if batch[batch_id][-3:] == 'png':
         x_img = Image.open(x_path)
         x = np.array(x_img)[:,:,0].astype(np.float) / 255.0

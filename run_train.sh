@@ -1,5 +1,19 @@
-# 03-03-17 Fri. train on weight sigma 0.5 noise 0.01, patch 128 with batch 16, 10 faces, whole gaussian noise
-python geonet_train.py --log_dir=log/weight/face_whole_0.010_128_w0.5 --data_dir=data/10FacialModels_whole --file_list=train_mat.txt --batch_size=16 --image_width=128 --image_height=128 --max_steps=100000 --initial_learning_rate=0.01 --decay_steps=40000 --transform=True --noise_level=0.010 --weight_on=True --weight_sigma=0.5
+python geonet_train.py --log_dir=log/100k_128/n1 --data_dir=data/faces_low_res/maps/100k/original --noise_level=n1 --file_list=train_mat.txt --batch_size=8 --image_width=128 --image_height=128 --max_steps=100000 --initial_learning_rate=0.01 --decay_steps=40000 --transform=True --weight_on=False --model=1
+python geonet_train.py --log_dir=log/100k_128/n2 --data_dir=data/faces_low_res/maps/100k/original --noise_level=n2 --file_list=train_mat.txt --batch_size=8 --image_width=128 --image_height=128 --max_steps=100000 --initial_learning_rate=0.01 --decay_steps=40000 --transform=True --weight_on=False --model=1
+python geonet_train.py --log_dir=log/100k_128/n3 --data_dir=data/faces_low_res/maps/100k/original --noise_level=n3 --file_list=train_mat.txt --batch_size=8 --image_width=128 --image_height=128 --max_steps=100000 --initial_learning_rate=0.01 --decay_steps=40000 --transform=True --weight_on=False --model=1
+
+###########################
+
+# python geonet_train.py --log_dir=log/face_whole_0.010_128_d2 --data_dir=data/10FacialModels_whole --file_list=train_mat.txt --batch_size=8 --image_width=128 --image_height=128 --max_steps=100000 --initial_learning_rate=0.01 --decay_steps=40000 --transform=True --noise_level=0.010 --weight_on=False --model=2
+
+# python geonet_train.py --log_dir=log/weight/face_whole_0.010_128_w0.10_wr3 --data_dir=data/10FacialModels_whole --file_list=train_mat.txt --batch_size=16 --image_width=128 --image_height=128 --max_steps=100000 --initial_learning_rate=0.01 --decay_steps=40000 --transform=True --noise_level=0.010 --weight_on=True --weight_sigma=0.10 --weight_ratio=3.0
+
+# 03-03-17 Fri. train on weight sigma 0.5, 0.75 noise 0.01, patch 128 with batch 16, 10 faces, whole gaussian noise
+# python geonet_train.py --log_dir=log/weight/face_whole_0.010_128_w0.5  --data_dir=data/10FacialModels_whole --file_list=train_mat.txt --batch_size=16 --image_width=128 --image_height=128 --max_steps=100000 --initial_learning_rate=0.01 --decay_steps=40000 --transform=True --noise_level=0.010 --weight_on=True --weight_sigma=0.5
+# python geonet_train.py --log_dir=log/weight/face_whole_0.010_128_w0.75 --data_dir=data/10FacialModels_whole --file_list=train_mat.txt --batch_size=16 --image_width=128 --image_height=128 --max_steps=100000 --initial_learning_rate=0.01 --decay_steps=40000 --transform=True --noise_level=0.010 --weight_on=True --weight_sigma=0.75
+# python geonet_train.py --log_dir=log/weight/face_whole_0.010_128_w0.25 --data_dir=data/10FacialModels_whole --file_list=train_mat.txt --batch_size=16 --image_width=128 --image_height=128 --max_steps=100000 --initial_learning_rate=0.01 --decay_steps=40000 --transform=True --noise_level=0.010 --weight_on=True --weight_sigma=0.25
+# python geonet_train.py --log_dir=log/weight/face_whole_0.010_128_w0.10_cont --data_dir=data/10FacialModels_whole --file_list=train_mat.txt --batch_size=16 --image_width=128 --image_height=128 --max_steps=100000 --initial_learning_rate=0.01 --decay_steps=40000 --transform=True --noise_level=0.010 --weight_on=True --weight_sigma=0.10 --pretrained_model_checkpoint_path=log/weight/face_whole_0.010_128_w0.10/geonet.ckpt-65000
+# python geonet_train.py --log_dir=log/weight/face_whole_0.010_128_w0.05 --data_dir=data/10FacialModels_whole --file_list=train_mat.txt --batch_size=16 --image_width=128 --image_height=128 --max_steps=100000 --initial_learning_rate=0.01 --decay_steps=40000 --transform=True --noise_level=0.010 --weight_on=True --weight_sigma=0.05
 
 # python geonet_train.py --log_dir=log/face_whole_0.005_512_cont  --data_dir=data/10FacialModels_whole --file_list=train_mat.txt --batch_size=1 --image_width=512 --image_height=512 --max_steps=100000 --initial_learning_rate=0.01 --decay_steps=40000 --transform=True --noise_level=0.005 --weight_on=False --pretrained_model_checkpoint_path=log/face_whole_0.005_512/geonet.ckpt-90000
 
