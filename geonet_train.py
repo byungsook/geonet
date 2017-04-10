@@ -30,7 +30,7 @@ tf.app.flags.DEFINE_string('pretrained_model_checkpoint_path', '',
                            """If specified, restore this pretrained model """
                            """before beginning any training.
                            e.g. log/test/geonet.ckpt """)
-tf.app.flags.DEFINE_integer('model', 2, # [1-2]
+tf.app.flags.DEFINE_integer('model', 1, # [1-2]
                             """type of training model.""")
 tf.app.flags.DEFINE_integer('max_steps', 10, # 20000
                             """Number of batches to run.""")
@@ -52,7 +52,7 @@ tf.app.flags.DEFINE_integer('summary_steps', 100,
                             """summary steps.""")
 tf.app.flags.DEFINE_integer('save_steps', 5000,
                             """save steps""")
-tf.app.flags.DEFINE_string('file_list', 'train_mat.txt',
+tf.app.flags.DEFINE_string('file_list', 'train.txt',
                            """file_list""")
 tf.app.flags.DEFINE_boolean('is_train', True,
                             """whether it is training or not""")
@@ -68,16 +68,12 @@ def train():
 
         x = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1])
         y = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1])
-        w = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1])
 
         # Build a Graph that computes the logits predictions from the inference model.
         y_hat = geonet_model.inference(x, phase_train, model=FLAGS.model)
 
         # Calculate loss.
-        if FLAGS.weight_on:
-            loss = geonet_model.loss(y_hat, y, w)
-        else:
-            loss = geonet_model.loss(y_hat, y)
+        loss = geonet_model.loss(y_hat, y)
 
         ###############################################################################
         # Build a Graph that trains the model with one batch of examples and
@@ -145,7 +141,6 @@ def train():
         summary_writer = tf.summary.FileWriter(FLAGS.log_dir, sess.graph)
         summary_y_writer = tf.summary.FileWriter(FLAGS.log_dir + '/y', sess.graph)
         summary_y_hat_writer = tf.summary.FileWriter(FLAGS.log_dir + '/y_hat', sess.graph)
-        summary_w_writer = tf.summary.FileWriter(FLAGS.log_dir + '/w', sess.graph)
 
         x_u8 = tf.placeholder(dtype=tf.uint8, shape=[None, FLAGS.image_height, FLAGS.image_width, 1])
         y_u8 = tf.placeholder(dtype=tf.uint8, shape=[None, FLAGS.image_height, FLAGS.image_width, 1])
@@ -153,7 +148,6 @@ def train():
         x_summary = tf.summary.image('x', x_u8, max_outputs=FLAGS.max_images)
         y_summary = tf.summary.image('y', y_u8, max_outputs=FLAGS.max_images)
         y_hat_summary = tf.summary.image('y_hat', y_hat_u8, max_outputs=FLAGS.max_images)
-        w_summary = tf.summary.image('w', w, max_outputs=FLAGS.max_images)
 
         ####################################################################
         # Start to train.
@@ -162,12 +156,8 @@ def train():
         for step in xrange(start_step, FLAGS.max_steps):
             # Train one step.
             start_time = time.time()
-            x_batch, y_batch, w_batch = batch_manager.batch()
-            if FLAGS.weight_on:
-                _, loss_value = sess.run([train_op, loss], feed_dict={phase_train: FLAGS.is_train,
-                                                                  x: x_batch, y: y_batch, w: w_batch})
-            else:
-                _, loss_value = sess.run([train_op, loss], feed_dict={phase_train: FLAGS.is_train,
+            x_batch, y_batch = batch_manager.batch()
+            _, loss_value = sess.run([train_op, loss], feed_dict={phase_train: FLAGS.is_train,
                                                                   x: x_batch, y: y_batch})
             duration = time.time() - start_time
 
@@ -189,9 +179,9 @@ def train():
                 y_hat_ = sess.run(tf.cast(tf.multiply(y_hat, 255.0), tf.uint8),
                     feed_dict={phase_train: FLAGS.is_train, x: x_batch, y: y_batch})
 
-                summary_str, x_summary_str, y_summary_str, y_hat_summary_str, w_summary_str = sess.run(
-                    [summary_op, x_summary, y_summary, y_hat_summary, w_summary],
-                    feed_dict={phase_train: FLAGS.is_train, x: x_batch, y: y_batch, w: w_batch,
+                summary_str, x_summary_str, y_summary_str, y_hat_summary_str = sess.run(
+                    [summary_op, x_summary, y_summary, y_hat_summary],
+                    feed_dict={phase_train: FLAGS.is_train, x: x_batch, y: y_batch, 
                                x_u8: x_, y_u8: y_, y_hat_u8: y_hat_})
                 summary_writer.add_summary(summary_str, step)
                 
@@ -211,15 +201,8 @@ def train():
                 summary_y_writer.add_summary(y_summary_tmp, step)
                 summary_y_hat_writer.add_summary(y_hat_summary_tmp, step)
 
-                if FLAGS.weight_on:
-                    w_summary_tmp = tf.Summary()
-                    w_summary_tmp.ParseFromString(w_summary_str)
-                    for i in xrange(FLAGS.max_images):
-                        w_summary_tmp.value[i].tag = new_tag
-                    summary_w_writer.add_summary(w_summary_tmp, step)
-
             # Save the model checkpoint periodically.
-            if (step + 1) % FLAGS.save_steps == 0 or (step + 1) == FLAGS.max_steps:
+            if step % FLAGS.save_steps == 0 or (step + 1) == FLAGS.max_steps:
                 checkpoint_path = os.path.join(FLAGS.log_dir, 'geonet.ckpt')
                 saver.save(sess, checkpoint_path, global_step=global_step)
 

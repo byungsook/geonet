@@ -26,15 +26,15 @@ import geonet_model
 
 # parameters
 FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('result_dir', 'result/face_whole_0.01_32',
+tf.app.flags.DEFINE_string('result_dir', 'result/test',
                            """Directory where to write event logs """
                            """and checkpoint.""")
-tf.app.flags.DEFINE_string('data_dir', 'data/10FacialModels_whole',
+tf.app.flags.DEFINE_string('data_dir', 'data/sketch',
                            """Directory where to write event logs """
                            """and checkpoint.""")
-tf.app.flags.DEFINE_string('file_list', 'test_mat.txt',
+tf.app.flags.DEFINE_string('file_list', 'test.txt',
                            """file_list""")
-tf.app.flags.DEFINE_string('pretrained_model_checkpoint_path', 'log/face_whole_0.01_32/geonet.ckpt-100000',
+tf.app.flags.DEFINE_string('pretrained_model_checkpoint_path', 'log/test/geonet.ckpt-10',
                            """If specified, restore this pretrained model.""")
 tf.app.flags.DEFINE_float('moving_avg_decay', 0.9999,
                           """The decay to use for the moving average.""")
@@ -42,14 +42,13 @@ tf.app.flags.DEFINE_integer('crop_size', 1024, # 128
                           """crop size.""")
 tf.app.flags.DEFINE_integer('batch_size', 1, # 16
                           """batch size.""")
-tf.app.flags.DEFINE_string('noise_level', 'n1',
-                            """noise level.""")
+tf.app.flags.DEFINE_float('range_max', 0.00777,
+                          """max range for normalization""")
 
 
 def run():
     num_files = 0
     file_path_list = []
-    gt_path_list = []
 
     if FLAGS.file_list:
         file_list_path = os.path.join(FLAGS.data_dir, FLAGS.file_list)
@@ -60,10 +59,6 @@ def run():
 
                 file = line.rstrip()
                 file_path = os.path.join(FLAGS.data_dir, file)
-                gt_path_list.append(file_path)
-                # file_path = file_path[:-4] + ('_%.3f' % FLAGS.noise_level) + file_path[-4:]
-                dir_path, file_path = os.path.split(file_path)
-                file_path = dir_path + ('/../%s/' % FLAGS.noise_level)  + file_path[:-4] + ('_%s' % FLAGS.noise_level) + file_path[-4:]
                 file_path_list.append(file_path)
     else:
         for root, _, files in os.walk(FLAGS.data_dir):
@@ -113,21 +108,11 @@ def run():
         f.write('%s: %d/%d-%s start to process\n' % (datetime.now(), file_id+1, num_files, file_name))
         
         # matrix input
-        RANGE_MAX = 0.075
-        x = scipy.io.loadmat(file_path)['result'] / RANGE_MAX * 0.5 + 0.5 # [0, 1]
+        x = scipy.io.loadmat(file_path)['result'] / 255.0 # [0, 1]
 
         # # image input
         # x_img = Image.open(file_path)
         # x = np.array(x_img)[:,:,0].astype(np.float) / 255.0
-
-        # if there is ground truth
-        if len(gt_path_list) > 0:
-            # y_img = Image.open(gt_path_list[file_id])
-            # y_gt = np.array(y_img)[:,:,0].astype(np.float) / 255.0
-            y_gt = scipy.io.loadmat(gt_path_list[file_id])['result'] / RANGE_MAX * 0.5 + 0.5 # [0, 1]
-        else:
-            y_gt = None
-
 
         x_shape = x.shape
         assert(x_shape[0] % FLAGS.crop_size == 0 and x_shape[1] % FLAGS.crop_size == 0)
@@ -166,10 +151,6 @@ def run():
                 c1 = batch_position[i][3]
                 y[r0:r1,c0:c1] = y_hat_batch[i,:,:,0]
 
-        if y_gt is not None:
-            l2_loss = np.sum((y - y_gt)**2) * 0.5
-            print('%s: %d/%d-%s l2 loss %.3f' % (datetime.now(), file_id+1, num_files, file_name, l2_loss))
-            f.write('%s: %d/%d-%s l2 loss %.3f\n' % (datetime.now(), file_id+1, num_files, file_name, l2_loss))
 
         # # debug
         # plt.figure()
@@ -184,7 +165,7 @@ def run():
         scipy.misc.imsave(output_path, (y*255).astype(np.uint8))
 
         # save displacement map result
-        y = (y - 0.5) * 2.0 * RANGE_MAX
+        y = (y - 0.5) * 2.0 * FLAGS.range_max
         output_path = os.path.join(FLAGS.result_dir, file_name + '.mat')
         scipy.io.savemat(output_path, dict(y=y))
 

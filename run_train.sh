@@ -1,6 +1,4 @@
-python geonet_train.py --log_dir=log/100k_128/n1 --data_dir=data/faces_low_res/maps/100k/original --noise_level=n1 --file_list=train_mat.txt --batch_size=8 --image_width=128 --image_height=128 --max_steps=100000 --initial_learning_rate=0.01 --decay_steps=40000 --transform=True --weight_on=False --model=1
-python geonet_train.py --log_dir=log/100k_128/n2 --data_dir=data/faces_low_res/maps/100k/original --noise_level=n2 --file_list=train_mat.txt --batch_size=8 --image_width=128 --image_height=128 --max_steps=100000 --initial_learning_rate=0.01 --decay_steps=40000 --transform=True --weight_on=False --model=1
-python geonet_train.py --log_dir=log/100k_128/n3 --data_dir=data/faces_low_res/maps/100k/original --noise_level=n3 --file_list=train_mat.txt --batch_size=8 --image_width=128 --image_height=128 --max_steps=100000 --initial_learning_rate=0.01 --decay_steps=40000 --transform=True --weight_on=False --model=1
+python geonet_train.py --log_dir=log/sketch --data_dir=data/sketch --file_list=train.txt --batch_size=8 --image_width=128 --image_height=128 --max_steps=100000 --initial_learning_rate=0.01 --decay_steps=40000 --transform=True --model=1
 
 ###########################
 
