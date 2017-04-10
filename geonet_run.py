@@ -42,7 +42,7 @@ tf.app.flags.DEFINE_integer('crop_size', 1024, # 128
                           """crop size.""")
 tf.app.flags.DEFINE_integer('batch_size', 1, # 16
                           """batch size.""")
-tf.app.flags.DEFINE_float('noise_level', 0.01,
+tf.app.flags.DEFINE_string('noise_level', 'n1',
                             """noise level.""")
 
 
@@ -61,7 +61,9 @@ def run():
                 file = line.rstrip()
                 file_path = os.path.join(FLAGS.data_dir, file)
                 gt_path_list.append(file_path)
-                file_path = file_path[:-4] + ('_%.3f' % FLAGS.noise_level) + file_path[-4:]
+                # file_path = file_path[:-4] + ('_%.3f' % FLAGS.noise_level) + file_path[-4:]
+                dir_path, file_path = os.path.split(file_path)
+                file_path = dir_path + ('/../%s/' % FLAGS.noise_level)  + file_path[:-4] + ('_%s' % FLAGS.noise_level) + file_path[-4:]
                 file_path_list.append(file_path)
     else:
         for root, _, files in os.walk(FLAGS.data_dir):

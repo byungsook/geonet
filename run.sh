@@ -1,3 +1,7 @@
+python geonet_run.py --result_dir=result/100k_128/n1 --pretrained_model_checkpoint_path=log/100k_128/n1/geonet.ckpt-100000 --data_dir=data/faces_low_res/maps/100k/original --noise_level=n1 --model=1
+python geonet_run.py --result_dir=result/100k_128/n2 --pretrained_model_checkpoint_path=log/100k_128/n2/geonet.ckpt-100000 --data_dir=data/faces_low_res/maps/100k/original --noise_level=n2 --model=1
+python geonet_run.py --result_dir=result/100k_128/n3 --pretrained_model_checkpoint_path=log/100k_128/n3/geonet.ckpt-100000 --data_dir=data/faces_low_res/maps/100k/original --noise_level=n3 --model=1
+
 # 09-03-17. Thu. Test with weights
 # python geonet_run.py --result_dir=result/weight/face_whole_0.010_128_w0.00 --pretrained_model_checkpoint_path=log/weight/face_whole_0.010_128_w0.00/geonet.ckpt-100000 --data_dir=data/10FacialModels_whole --noise_level=0.01
 # python geonet_run.py --result_dir=result/weight/face_whole_0.010_128_w0.05 --pretrained_model_checkpoint_path=log/weight/face_whole_0.010_128_w0.05/geonet.ckpt-100000  --data_dir=data/10FacialModels_whole --noise_level=0.01
