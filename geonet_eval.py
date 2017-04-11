@@ -25,7 +25,7 @@ FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string('eval_dir', 'eval/test',
                            """Directory where to write event logs """
                            """and checkpoint.""")
-tf.app.flags.DEFINE_string('pretrained_model_checkpoint_path', 'log/test/geonet.ckpt',
+tf.app.flags.DEFINE_string('checkpoint_dir', 'log/test',
                            """If specified, restore this pretrained model.""")
 tf.app.flags.DEFINE_integer('model', 2, # [1-2]
                             """type of training model.""")
@@ -86,11 +86,12 @@ def evaluate():
 
         # Start evaluation
         with tf.Session() as sess:
-            if FLAGS.pretrained_model_checkpoint_path:
-                # assert tf.gfile.Exists(FLAGS.pretrained_model_checkpoint_path)
-                saver.restore(sess, FLAGS.pretrained_model_checkpoint_path)
-                print('%s: Pre-trained model restored from %s' %
-                    (datetime.now(), FLAGS.pretrained_model_checkpoint_path))
+            ckpt = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
+            if ckpt and FLAGS.checkpoint_dir:
+                ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
+                saver.restore(sess, os.path.join(FLAGS.checkpoint_dir, ckpt_name))
+                print('%s: Pre-trained model restored from %s' % 
+                    (datetime.now(), ckpt_name))    
 
             num_eval = batch_manager.num_examples_per_epoch * FLAGS.num_epoch
             num_iter = int(math.ceil(num_eval / FLAGS.batch_size))

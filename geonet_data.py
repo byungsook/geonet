@@ -57,7 +57,6 @@ class Param(object):
         self.image_width = FLAGS.image_width
         self.image_height = FLAGS.image_height
         self.transform = FLAGS.transform
-        self.is_train = FLAGS.is_train
         self.range_max = FLAGS.range_max
 
 
@@ -115,7 +114,7 @@ class BatchManager(object):
             _batch = []
             for i in xrange(FLAGS.batch_size):
                 _batch.append(self._data_list[self._next_id])
-                train_set(i, _batch, self.x_batch, self.y_batch, self.w_batch, FLAGS)
+                train_set(i, _batch, self.x_batch, self.y_batch, FLAGS)
                 self._next_id = (self._next_id + 1) % len(self._data_list)
                 if self._next_id == 0:
                     self.num_epoch = self.num_epoch + 1
@@ -134,7 +133,7 @@ class BatchManager(object):
 
 
 def train_set(batch_id, batch, x_batch, y_batch, FLAGS):
-    x = scipy.io.loadmat(batch[batch_id])['result'] / 255.0 # [0, 1]
+    x = scipy.io.loadmat(batch[batch_id])['result'] / 127.5 - 1.0 # [-1, 1]
 
     if FLAGS.transform:
         np.random.seed()
@@ -175,7 +174,7 @@ def train_set(batch_id, batch, x_batch, y_batch, FLAGS):
     # transform y in the same way
     dir_path, file_path =  os.path.split(batch[batch_id])
     y_path = os.path.join(dir_path, 'disp'+file_path)
-    y = scipy.io.loadmat(y_path)['result'] / FLAGS.range_max * 0.5 + 0.5 # [0, 1]
+    y = scipy.io.loadmat(y_path)['result'] / FLAGS.range_max # [-1, 1]
     # print(batch[batch_id], np.amin(y), np.amax(y), np.average(y))
 
     if FLAGS.transform:
@@ -192,9 +191,9 @@ def train_set(batch_id, batch, x_batch, y_batch, FLAGS):
     # # debug
     # plt.figure()
     # plt.subplot(121)
-    # plt.imshow(x_crop, cmap=plt.cm.gray, clim=(0.0, 1.0))
+    # plt.imshow((x_crop + 1.0) * 0.5, cmap=plt.cm.gray, clim=(0.0, 1.0))
     # plt.subplot(122)
-    # plt.imshow(y_crop, cmap=plt.cm.gray, clim=(0.0, 1.0))
+    # plt.imshow((y_crop + 1.0) * 0.5, cmap=plt.cm.gray, clim=(0.0, 1.0))
     # plt.show()
 
     x_batch[batch_id,:,:,0] = x_crop
@@ -291,29 +290,21 @@ if __name__ == '__main__':
 
     # parameters 
     tf.app.flags.DEFINE_string('file_list', 'train.txt', """file_list""")
-    tf.app.flags.DEFINE_boolean('is_train', True, """is train""")
     FLAGS.num_processors = 1
-    # # eval
-    # FLAGS.file_list = 'test_mat.txt'
-    # FLAGS.is_train = False
-    # FLAGS.image_height = 1024
-    # FLAGS.image_width = 1024
-    # FLAGS.transform = False
-    # FLAGS.batch_size = 1
-    
-    # split_dataset()
 
     batch_manager = BatchManager()
-    x_batch, y_batch, w_batch = batch_manager.batch()
+    x_batch, y_batch = batch_manager.batch()
 
     plt.figure()
     for i in xrange(FLAGS.batch_size):
+        x = np.reshape(x_batch[i,:], [FLAGS.image_height, FLAGS.image_width])
+        y = np.reshape(y_batch[i,:], [FLAGS.image_height, FLAGS.image_width])
+        x = (x + 1.0) * 0.5
+        y = (y + 1.0) * 0.5
         plt.subplot(121)
-        plt.imshow(np.reshape(x_batch[i,:], [FLAGS.image_height, FLAGS.image_width]), cmap=plt.cm.gray, clim=(0.0, 1.0))
+        plt.imshow(x, cmap=plt.cm.gray, clim=(0.0, 1.0))
         plt.subplot(122)
-        plt.imshow(np.reshape(y_batch[i,:], [FLAGS.image_height, FLAGS.image_width]), cmap=plt.cm.gray, clim=(0.0, 1.0))
-        # plt.subplot(133)
-        # plt.imshow(np.reshape(w_batch[i,:], [FLAGS.image_height, FLAGS.image_width]), cmap=plt.cm.gray, clim=(0.0, 1.0))
+        plt.imshow(y, cmap=plt.cm.gray, clim=(0.0, 1.0))
         plt.show()
 
     print('Done')

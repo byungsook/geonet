@@ -16,7 +16,7 @@ from six.moves import xrange  # pylint: disable=redefined-builtin
 import numpy as np
 import tensorflow as tf
 
-import geonet_model
+import geonet_model2
 import geonet_data
 
 # parameters
@@ -26,7 +26,7 @@ tf.app.flags.DEFINE_string('log_dir', 'log/test',
                            """and checkpoint.""")
 tf.app.flags.DEFINE_boolean('log_device_placement', False,
                             """Whether to log device placement.""")
-tf.app.flags.DEFINE_string('pretrained_model_checkpoint_path', '',
+tf.app.flags.DEFINE_string('checkpoint_dir', '',
                            """If specified, restore this pretrained model """
                            """before beginning any training.
                            e.g. log/test/geonet.ckpt """)
@@ -64,16 +64,14 @@ def train():
         batch_manager = geonet_data.BatchManager()
         print('%s: %d files' % (datetime.now(), batch_manager.num_examples_per_epoch))
 
-        phase_train = tf.placeholder(tf.bool, name='phase_train')
-
         x = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1])
         y = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1])
 
         # Build a Graph that computes the logits predictions from the inference model.
-        y_hat = geonet_model.inference(x, phase_train, model=FLAGS.model)
+        y_hat = geonet_model2.inference(x, FLAGS.is_train, model=FLAGS.model)
 
         # Calculate loss.
-        loss = geonet_model.loss(y_hat, y)
+        loss = geonet_model2.loss(y_hat, y)
 
         ###############################################################################
         # Build a Graph that trains the model with one batch of examples and
@@ -128,13 +126,14 @@ def train():
 
         # Create a saver (restorer).
         saver = tf.train.Saver()
-        if FLAGS.pretrained_model_checkpoint_path:
-            # assert tf.gfile.Exists(FLAGS.pretrained_model_checkpoint_path)
-            saver.restore(sess, FLAGS.pretrained_model_checkpoint_path)
-            print('%s: Pre-trained model restored from %s' %
-                (datetime.now(), FLAGS.pretrained_model_checkpoint_path))
+        ckpt = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
+        if ckpt and FLAGS.checkpoint_dir:
+            ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
+            saver.restore(sess, os.path.join(FLAGS.checkpoint_dir, ckpt_name))
+            print('%s: Pre-trained model restored from %s' % 
+                (datetime.now(), ckpt_name))    
         else:
-            sess.run(tf.global_variables_initializer(), feed_dict={phase_train: FLAGS.is_train})
+            sess.run(tf.global_variables_initializer())
 
         # Build the summary operation.
         summary_op = tf.summary.merge_all()
@@ -157,8 +156,7 @@ def train():
             # Train one step.
             start_time = time.time()
             x_batch, y_batch = batch_manager.batch()
-            _, loss_value = sess.run([train_op, loss], feed_dict={phase_train: FLAGS.is_train,
-                                                                  x: x_batch, y: y_batch})
+            _, loss_value = sess.run([train_op, loss], feed_dict={x: x_batch, y: y_batch})
             duration = time.time() - start_time
 
             assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
@@ -173,15 +171,14 @@ def train():
             if step % FLAGS.summary_steps == 0 or step < 100:
                 new_shape = [FLAGS.max_images, FLAGS.image_height, FLAGS.image_width, 1]
                 x_ = x_batch[:FLAGS.max_images,:]
-                x_ = np.reshape(x_*255.0, new_shape).astype(np.uint8)
+                x_ = np.reshape((x_+1.0)*127.5, new_shape).astype(np.uint8)
                 y_ = y_batch[:FLAGS.max_images,:]
-                y_ = np.reshape(y_*255.0, new_shape).astype(np.uint8)
-                y_hat_ = sess.run(tf.cast(tf.multiply(y_hat, 255.0), tf.uint8),
-                    feed_dict={phase_train: FLAGS.is_train, x: x_batch, y: y_batch})
-
+                y_ = np.reshape((y_+1.0)*127.5, new_shape).astype(np.uint8)
+                y_hat_ = sess.run(y_hat, feed_dict={x: x_batch, y: y_batch})
+                y_hat_ = ((y_hat_+1.0)*127.5).astype(np.uint8)
                 summary_str, x_summary_str, y_summary_str, y_hat_summary_str = sess.run(
                     [summary_op, x_summary, y_summary, y_hat_summary],
-                    feed_dict={phase_train: FLAGS.is_train, x: x_batch, y: y_batch, 
+                    feed_dict={x: x_batch, y: y_batch, 
                                x_u8: x_, y_u8: y_, y_hat_u8: y_hat_})
                 summary_writer.add_summary(summary_str, step)
                 

@@ -34,7 +34,7 @@ tf.app.flags.DEFINE_string('data_dir', 'data/sketch',
                            """and checkpoint.""")
 tf.app.flags.DEFINE_string('file_list', 'test.txt',
                            """file_list""")
-tf.app.flags.DEFINE_string('pretrained_model_checkpoint_path', 'log/test/geonet.ckpt-10',
+tf.app.flags.DEFINE_string('checkpoint_dir', 'log/test',
                            """If specified, restore this pretrained model.""")
 tf.app.flags.DEFINE_float('moving_avg_decay', 0.9999,
                           """The decay to use for the moving average.""")
@@ -89,11 +89,12 @@ def run():
 
     # Start evaluation
     sess = tf.Session()
-    if FLAGS.pretrained_model_checkpoint_path:
-        # assert tf.gfile.Exists(FLAGS.pretrained_model_checkpoint_path)
-        saver.restore(sess, FLAGS.pretrained_model_checkpoint_path)
-        print('%s: Pre-trained model restored from %s' %
-            (datetime.now(), FLAGS.pretrained_model_checkpoint_path))
+    ckpt = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
+    if ckpt and FLAGS.checkpoint_dir:
+        ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
+        saver.restore(sess, os.path.join(FLAGS.checkpoint_dir, ckpt_name))
+        print('%s: Pre-trained model restored from %s' % 
+              (datetime.now(), ckpt_name))
     else:
         print('cannot find pretrained model')
         assert(False)
@@ -108,7 +109,7 @@ def run():
         f.write('%s: %d/%d-%s start to process\n' % (datetime.now(), file_id+1, num_files, file_name))
         
         # matrix input
-        x = scipy.io.loadmat(file_path)['result'] / 255.0 # [0, 1]
+        x = scipy.io.loadmat(file_path)['result'] / 127.5 - 1.0 # [-1, 1]
 
         # # image input
         # x_img = Image.open(file_path)
@@ -162,10 +163,11 @@ def run():
 
         # save displacement map image result
         output_path = os.path.join(FLAGS.result_dir, file_name + '.png')
-        scipy.misc.imsave(output_path, (y*255).astype(np.uint8))
+        scipy.misc.imsave(output_path, ((y+1.0)*127.5).astype(np.uint8))
 
         # save displacement map result
-        y = (y - 0.5) * 2.0 * FLAGS.range_max
+        # y = (y - 0.5) * 2.0 * FLAGS.range_max
+        y = y * FLAGS.range_max
         output_path = os.path.join(FLAGS.result_dir, file_name + '.mat')
         scipy.io.savemat(output_path, dict(y=y))
 
