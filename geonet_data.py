@@ -164,7 +164,12 @@ def train_set(batch_id, batch, x_batch, y_batch, FLAGS):
             lc_c = np.random.randint(image_shape[1]-FLAGS.image_width+1)
             x_crop = x_rotate[lc_r:lc_r+FLAGS.image_height, lc_c:lc_c+FLAGS.image_width]
 
-            nz = np.nonzero(x_crop < 1)
+            # check inside
+            hs = int(FLAGS.image_height*0.25)
+            ws = int(FLAGS.image_width*0.25)
+            he = hs + int(FLAGS.image_height*0.5)
+            we = ws + int(FLAGS.image_width*0.5)
+            nz = np.nonzero(x_crop[hs:he, ws:we] < 1)
             if len(nz[0]) > 0:
                 break
     else:

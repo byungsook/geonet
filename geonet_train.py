@@ -120,9 +120,12 @@ def train():
 
 
         ####################################################################
-        # Start running operations on the Graph. 
-        sess = tf.Session(config=tf.ConfigProto(
-            log_device_placement=FLAGS.log_device_placement))
+        # Start running operations on the Graph.
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True
+        config.allow_soft_placement = True
+        config.log_device_placement = FLAGS.log_device_placement
+        sess = tf.Session(config=config)
 
         # Create a saver (restorer).
         saver = tf.train.Saver()
