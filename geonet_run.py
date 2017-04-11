@@ -21,7 +21,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import tensorflow as tf
 
-import geonet_model
+import geonet_model2
 
 
 # parameters
@@ -74,21 +74,15 @@ def run():
 
     global_step = tf.Variable(0, name='global_step', trainable=False)
     is_train = False
-    phase_train = tf.placeholder(tf.bool, name='phase_train')
 
-    x_ph = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.crop_size, FLAGS.crop_size, 1])
+    x_ph = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, FLAGS.crop_size, FLAGS.crop_size, 1])
     
     # Build a Graph that computes the logits predictions from the inference model.
-    y_hat = geonet_model.inference(x_ph, phase_train)
-
-    # Restore the moving average version of the learned variables for eval.
-    variable_averages = tf.train.ExponentialMovingAverage(FLAGS.moving_avg_decay)
-    variables_to_restore = variable_averages.variables_to_restore()
-    saver = tf.train.Saver(variables_to_restore)
-    # saver = tf.train.Saver()
+    y_hat = geonet_model2.inference(x_ph, FLAGS.crop_size, is_train)
 
     # Start evaluation
     sess = tf.Session()
+    saver = tf.train.Saver()
     ckpt = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
     if ckpt and FLAGS.checkpoint_dir:
         ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
@@ -134,7 +128,7 @@ def run():
                 batch_id += 1
                 batch_id %= FLAGS.batch_size
                 if batch_id == 0:
-                    y_hat_batch = sess.run(y_hat, feed_dict={phase_train: is_train, x_ph: x_batch})
+                    y_hat_batch = sess.run(y_hat, feed_dict={x_ph: x_batch})
                     for i in xrange(FLAGS.batch_size):
                         r0 = batch_position[i][0]
                         r1 = batch_position[i][1]
@@ -144,7 +138,7 @@ def run():
                     del batch_position[:]
         
         if batch_id != 0:
-            y_hat_batch = sess.run(y_hat, feed_dict={phase_train: is_train, x_ph: x_batch})
+            y_hat_batch = sess.run(y_hat, feed_dict={x_ph: x_batch})
             for i in xrange(batch_id):
                 r0 = batch_position[i][0]
                 r1 = batch_position[i][1]

@@ -68,7 +68,7 @@ def train():
         y = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1])
 
         # Build a Graph that computes the logits predictions from the inference model.
-        y_hat = geonet_model2.inference(x, FLAGS.is_train, model=FLAGS.model)
+        y_hat = geonet_model2.inference(x, FLAGS.image_width, FLAGS.is_train, model=FLAGS.model)
 
         # Calculate loss.
         loss = geonet_model2.loss(y_hat, y)
