@@ -61,23 +61,23 @@ tf.app.flags.DEFINE_boolean('is_train', True,
 def train():
     """Train the network for a number of steps."""
     with tf.Graph().as_default():
-        batch_manager = geonet_data.BatchManager()
-        print('%s: %d files' % (datetime.now(), batch_manager.num_examples_per_epoch))
+        # print flags
+        flag_file_path = os.path.join(FLAGS.log_dir, 'flag.txt')
+        with open(flag_file_path, 'wt') as out:
+            pprint.PrettyPrinter(stream=out).pprint(flags.FLAGS.__flags)
 
         phase_train = tf.placeholder(tf.bool, name='phase_train')
 
-        x = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1])
-        y = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1])
-        w = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1])
+        batch_manager = geonet_data.BatchManager()
+        print('%s: %d files' % (datetime.now(), batch_manager.num_examples_per_epoch))
+
+        x, y = batch_manager.batch()
 
         # Build a Graph that computes the logits predictions from the inference model.
         y_hat = geonet_model.inference(x, phase_train, model=FLAGS.model)
 
         # Calculate loss.
-        if FLAGS.weight_on:
-            loss = geonet_model.loss(y_hat, y, w)
-        else:
-            loss = geonet_model.loss(y_hat, y)
+        loss = geonet_model.loss(y_hat, y)
 
         ###############################################################################
         # Build a Graph that trains the model with one batch of examples and
@@ -121,22 +121,26 @@ def train():
         variable_averages = tf.train.ExponentialMovingAverage(FLAGS.moving_avg_decay, global_step)
         variable_averages_op = variable_averages.apply(tf.trainable_variables())
 
-        with tf.control_dependencies([apply_gradient_op, variable_averages_op]):
-            train_op = tf.no_op(name='train')
+        train_op = tf.group(apply_gradient_op, variables_averages_op)
 
 
         ####################################################################
         # Start running operations on the Graph. 
-        sess = tf.Session(config=tf.ConfigProto(
-            log_device_placement=FLAGS.log_device_placement))
+        # Start running operations on the Graph.
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True
+        config.allow_soft_placement = True
+        config.log_device_placement = FLAGS.log_device_placement
+        sess = tf.Session(config=config)
 
         # Create a saver (restorer).
         saver = tf.train.Saver()
-        if FLAGS.pretrained_model_checkpoint_path:
-            # assert tf.gfile.Exists(FLAGS.pretrained_model_checkpoint_path)
-            saver.restore(sess, FLAGS.pretrained_model_checkpoint_path)
-            print('%s: Pre-trained model restored from %s' %
-                (datetime.now(), FLAGS.pretrained_model_checkpoint_path))
+        ckpt = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
+        if ckpt and FLAGS.checkpoint_dir:
+            ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
+            saver.restore(sess, os.path.join(FLAGS.checkpoint_dir, ckpt_name))
+            print('%s: Pre-trained model restored from %s' % 
+                (datetime.now(), ckpt_name))    
         else:
             sess.run(tf.global_variables_initializer(), feed_dict={phase_train: FLAGS.is_train})
 
@@ -158,17 +162,14 @@ def train():
         ####################################################################
         # Start to train.
         print('%s: start to train' % datetime.now())
+        batch_manager.start_thread(sess)
         start_step = tf.train.global_step(sess, global_step)
         for step in xrange(start_step, FLAGS.max_steps):
             # Train one step.
             start_time = time.time()
             x_batch, y_batch, w_batch = batch_manager.batch()
-            if FLAGS.weight_on:
-                _, loss_value = sess.run([train_op, loss], feed_dict={phase_train: FLAGS.is_train,
-                                                                  x: x_batch, y: y_batch, w: w_batch})
-            else:
-                _, loss_value = sess.run([train_op, loss], feed_dict={phase_train: FLAGS.is_train,
-                                                                  x: x_batch, y: y_batch})
+            _, loss_value, x_batch, y_batch = sess.run([train_op, loss, x, y], 
+                                                       feed_dict={phase_train: FLAGS.is_train})
             duration = time.time() - start_time
 
             assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
@@ -183,11 +184,11 @@ def train():
             if step % FLAGS.summary_steps == 0 or step < 100:
                 new_shape = [FLAGS.max_images, FLAGS.image_height, FLAGS.image_width, 1]
                 x_ = x_batch[:FLAGS.max_images,:]
-                x_ = np.reshape(x_*255.0, new_shape).astype(np.uint8)
                 y_ = y_batch[:FLAGS.max_images,:]
+                y_hat_ = sess.run(y_hat, feed_dict={phase_train: False})
+                x_ = np.reshape(x_*255.0, new_shape).astype(np.uint8)
                 y_ = np.reshape(y_*255.0, new_shape).astype(np.uint8)
-                y_hat_ = sess.run(tf.cast(tf.multiply(y_hat, 255.0), tf.uint8),
-                    feed_dict={phase_train: FLAGS.is_train, x: x_batch, y: y_batch})
+                y_hat_ = (y_hat_*255.0).astype(np.uint8)
 
                 summary_str, x_summary_str, y_summary_str, y_hat_summary_str, w_summary_str = sess.run(
                     [summary_op, x_summary, y_summary, y_hat_summary, w_summary],
@@ -223,6 +224,7 @@ def train():
                 checkpoint_path = os.path.join(FLAGS.log_dir, 'geonet.ckpt')
                 saver.save(sess, checkpoint_path, global_step=global_step)
 
+        batch_manager.stop_thread()
         print('done')
 
 
