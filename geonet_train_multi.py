@@ -59,6 +59,56 @@ tf.app.flags.DEFINE_boolean('is_train', True,
 tf.app.flags.DEFINE_integer('num_gpus', 1,
                             """# of gpus""")
 
+def gradients(opt):
+    with tf.variable_scope(tf.get_variable_scope()):
+        for i in xrange(FLAGS.num_gpus):
+            with tf.device('/gpu:%d' % i), tf.name_scope('gpu_%d' % i) as scope:
+                # Calculate the loss for one tower of the model. This function
+                # constructs the entire model but shares the variables across
+                # all towers.
+                x, y = batch_manager.batch()
+
+                # Build a Graph that computes the logits predictions from the inference model.
+                y_hat = geonet_model2.inference(x, FLAGS.image_width, FLAGS.is_train, model=FLAGS.model)
+
+                # Calculate loss.
+                loss = geonet_model2.loss(y_hat, y)
+
+                # Compute the moving average of all individual losses and the total loss.
+                loss_averages = tf.train.ExponentialMovingAverage(0.9, name='avg')
+                loss_averages_op = loss_averages.apply([loss])
+
+                # Name each loss as '(raw)' and name the moving average version of the loss
+                # as the original loss name.
+                tf.summary.scalar(loss.op.name + ' (raw)', loss)
+                tf.summary.scalar(loss.op.name, loss_averages.average(loss))
+
+                # Reuse variables for the next tower.
+                tf.get_variable_scope().reuse_variables()
+
+                # Retain the summaries from the final tower.
+                summaries = tf.get_collection(tf.GraphKeys.SUMMARIES, scope)
+
+                # Calculate the gradients for the batch of data on this CIFAR tower.
+                grads = opt.compute_gradients(loss)
+
+                # Clip gradient
+                max_grad = FLAGS.clip_gradients / learning_rate
+                grads = [(tf.clip_by_value(grad, -max_grad, max_grad), var) for grad, var in grads]
+
+                # Keep track of the gradients across all towers.
+                tower_grads.append(grads)
+
+
+        # We must calculate the mean of each gradient. Note that this is the
+        # synchronization point across all towers.
+        if FLAGS.num_gpus > 1:
+            grads = average_gradients(tower_grads)
+        else:
+            grads = tower_grads[0]
+
+    return grads
+
 
 def train():
     """Train the network for a number of steps."""
@@ -70,7 +120,6 @@ def train():
         # Build a Graph that trains the model with one batch of examples and
         # updates the model parameters.
         global_step = tf.Variable(0, name='global_step', trainable=False)
-
 
         # Decay the learning rate exponentially based on the number of steps.
         learning_rate = tf.train.exponential_decay(FLAGS.initial_learning_rate,
@@ -86,54 +135,7 @@ def train():
         opt = tf.train.AdamOptimizer(learning_rate)
 
         # Calculate the gradients for each model tower.
-        tower_grads = []
-        with tf.variable_scope(tf.get_variable_scope()):
-            for i in xrange(FLAGS.num_gpus):
-                with tf.device('/gpu:%d' % i):
-                    with tf.name_scope('gpu_%d' % i) as scope:
-                        # Calculate the loss for one tower of the model. This function
-                        # constructs the entire model but shares the variables across
-                        # all towers.
-                        x, y = batch_manager.batch()
-
-                        # Build a Graph that computes the logits predictions from the inference model.
-                        y_hat = geonet_model2.inference(x, FLAGS.image_width, FLAGS.is_train, model=FLAGS.model)
-
-                        # Calculate loss.
-                        loss = geonet_model2.loss(y_hat, y)
-
-                        # Compute the moving average of all individual losses and the total loss.
-                        loss_averages = tf.train.ExponentialMovingAverage(0.9, name='avg')
-                        loss_averages_op = loss_averages.apply([loss])
-
-                        # Name each loss as '(raw)' and name the moving average version of the loss
-                        # as the original loss name.
-                        tf.summary.scalar(loss.op.name + ' (raw)', loss)
-                        tf.summary.scalar(loss.op.name, loss_averages.average(loss))
-
-                        # Reuse variables for the next tower.
-                        tf.get_variable_scope().reuse_variables()
-
-                        # Retain the summaries from the final tower.
-                        summaries = tf.get_collection(tf.GraphKeys.SUMMARIES, scope)
-
-                        # Calculate the gradients for the batch of data on this CIFAR tower.
-                        grads = opt.compute_gradients(loss)
-
-                        # Clip gradient
-                        max_grad = FLAGS.clip_gradients / learning_rate
-                        grads = [(tf.clip_by_value(grad, -max_grad, max_grad), var) for grad, var in grads]
-
-                        # Keep track of the gradients across all towers.
-                        tower_grads.append(grads)
-
-
-        # We must calculate the mean of each gradient. Note that this is the
-        # synchronization point across all towers.
-        if FLAGS.num_gpus > 1:
-            grads = average_gradients(tower_grads)
-        else:
-            grads = tower_grads[0]
+        grads = gradients(opt)        
         
         # # Add histograms for gradients.
         # for grad, var in grads:

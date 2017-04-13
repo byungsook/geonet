@@ -315,16 +315,16 @@ if __name__ == '__main__':
 
     print ('%s: %.3f sec/batch' % (datetime.now(), duration))
     
-    # plt.figure()
-    # for i in xrange(FLAGS.batch_size):
-    #     x = np.reshape(x_batch[i,:], [FLAGS.image_height, FLAGS.image_width])
-    #     y = np.reshape(y_batch[i,:], [FLAGS.image_height, FLAGS.image_width])
-    #     x = (x + 1.0) * 0.5
-    #     y = (y + 1.0) * 0.5
-    #     plt.subplot(121)
-    #     plt.imshow(x, cmap=plt.cm.gray, clim=(0.0, 1.0))
-    #     plt.subplot(122)
-    #     plt.imshow(y, cmap=plt.cm.gray, clim=(0.0, 1.0))
-    #     plt.show()
+    plt.figure()
+    for i in xrange(FLAGS.batch_size):
+        x = np.reshape(x_batch[i,:], [FLAGS.image_height, FLAGS.image_width])
+        y = np.reshape(y_batch[i,:], [FLAGS.image_height, FLAGS.image_width])
+        x = (x + 1.0) * 0.5
+        y = (y + 1.0) * 0.5
+        plt.subplot(121)
+        plt.imshow(x, cmap=plt.cm.gray, clim=(0.0, 1.0))
+        plt.subplot(122)
+        plt.imshow(y, cmap=plt.cm.gray, clim=(0.0, 1.0))
+        plt.show()
 
     print('Done')
