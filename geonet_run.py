@@ -21,7 +21,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import tensorflow as tf
 
-import geonet_model2
+import geonet_model
 
 
 # parameters
@@ -78,10 +78,17 @@ def run():
     x_ph = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, FLAGS.crop_size, FLAGS.crop_size, 1])
     
     # Build a Graph that computes the logits predictions from the inference model.
-    y_hat = geonet_model2.inference(x_ph, FLAGS.crop_size, is_train)
+    y_hat = geonet_model.inference(x_ph, FLAGS.crop_size, is_train)
 
     # Start evaluation
-    sess = tf.Session()
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    config.allow_soft_placement = True
+    config.log_device_placement = False
+    sess = tf.Session(config=config)
+    # variable_averages = tf.train.ExponentialMovingAverage(FLAGS.moving_avg_decay)
+    # variables_to_restore = variable_averages.variables_to_restore()
+    # saver = tf.train.Saver(variables_to_restore)
     saver = tf.train.Saver()
     ckpt = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
     if ckpt and FLAGS.checkpoint_dir:

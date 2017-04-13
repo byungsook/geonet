@@ -11,82 +11,71 @@ from __future__ import print_function
 from datetime import datetime
 import os
 import time
+import pprint
 
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import numpy as np
 import tensorflow as tf
 
-import geonet_model2
+import geonet_model
 import geonet_data
 
 # parameters
-FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('log_dir', 'log/test',
-                           """Directory where to write event logs """
-                           """and checkpoint.""")
-tf.app.flags.DEFINE_boolean('log_device_placement', False,
-                            """Whether to log device placement.""")
-tf.app.flags.DEFINE_string('checkpoint_dir', '',
-                           """If specified, restore this pretrained model """
-                           """before beginning any training.
-                           e.g. log/test/geonet.ckpt """)
-tf.app.flags.DEFINE_integer('model', 1, # [1-2]
-                            """type of training model.""")
-tf.app.flags.DEFINE_integer('max_steps', 10, # 20000
-                            """Number of batches to run.""")
-tf.app.flags.DEFINE_integer('decay_steps', 30000,
-                            """Decay steps""")
-tf.app.flags.DEFINE_float('initial_learning_rate', 0.01,
-                          """Initial learning rate.""")
-tf.app.flags.DEFINE_float('learning_decay_factor', 0.1,
-                          """Learning rate decay factor.""")
-tf.app.flags.DEFINE_float('moving_avg_decay', 0.9999,
-                          """The decay to use for the moving average.""")
-tf.app.flags.DEFINE_float('clip_gradients', 0.1,
-                          """range for clipping gradients.""")
-tf.app.flags.DEFINE_integer('max_images', 1,
-                            """max # images to save.""")
-tf.app.flags.DEFINE_integer('stat_steps', 10,
-                            """statistics steps.""")
-tf.app.flags.DEFINE_integer('summary_steps', 100,
-                            """summary steps.""")
-tf.app.flags.DEFINE_integer('save_steps', 5000,
-                            """save steps""")
-tf.app.flags.DEFINE_string('file_list', 'train.txt',
-                           """file_list""")
-tf.app.flags.DEFINE_boolean('is_train', True,
-                            """whether it is training or not""")
+flags = tf.app.flags
+flags.DEFINE_string('log_dir', 'log/test',
+                    """Directory where to write event logs """
+                    """and checkpoint.""")
+flags.DEFINE_boolean('log_device_placement', False,
+                     """Whether to log device placement.""")
+flags.DEFINE_string('checkpoint_dir', '',
+                    """If specified, restore this pretrained model """
+                    """before beginning any training.
+                    e.g. log/test""")
+flags.DEFINE_integer('model', 1, # [1-2]
+                     """type of training model.""")
+flags.DEFINE_integer('max_steps', 10, # 50000
+                     """Number of batches to run.""")
+flags.DEFINE_integer('decay_steps', 30000,
+                     """Decay steps""")
+flags.DEFINE_float('initial_learning_rate', 0.01,
+                   """Initial learning rate.""")
+flags.DEFINE_float('learning_decay_factor', 0.1,
+                   """Learning rate decay factor.""")
+flags.DEFINE_float('moving_avg_decay', 0.9999,
+                   """The decay to use for the moving average.""")
+flags.DEFINE_float('clip_gradients', 0.1,
+                   """range for clipping gradients.""")
+flags.DEFINE_integer('max_images', 1,
+                     """max # images to save.""")
+flags.DEFINE_integer('stat_steps', 10,
+                     """statistics steps.""")
+flags.DEFINE_integer('summary_steps', 100,
+                     """summary steps.""")
+flags.DEFINE_integer('save_steps', 5000,
+                     """save steps""")
+flags.DEFINE_string('file_list', 'train.txt',
+                    """file_list""")
+flags.DEFINE_boolean('is_train', True,
+                     """whether it is training or not""")
+# flags.DEFINE_integer('gpu_id', 0,
+#                      """gpu id""")
+FLAGS = flags.FLAGS
 
 
 def train():
     """Train the network for a number of steps."""
     with tf.Graph().as_default():
-        batch_manager = geonet_data.BatchManager()
-        print('%s: %d files' % (datetime.now(), batch_manager.num_examples_per_epoch))
-
-        x = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1])
-        y = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1])
-
-        # Build a Graph that computes the logits predictions from the inference model.
-        y_hat = geonet_model2.inference(x, FLAGS.image_width, FLAGS.is_train, model=FLAGS.model)
-
-        # Calculate loss.
-        loss = geonet_model2.loss(y_hat, y)
+    # with tf.Graph().as_default(), tf.device('/cpu:0'):
+        # print flags
+        flag_file_path = os.path.join(FLAGS.log_dir, 'flag.txt')
+        with open(flag_file_path, 'wt') as out:
+            pprint.PrettyPrinter(stream=out).pprint(flags.FLAGS.__flags)
 
         ###############################################################################
         # Build a Graph that trains the model with one batch of examples and
         # updates the model parameters.
         global_step = tf.Variable(0, name='global_step', trainable=False)
-
-        # Compute the moving average of all individual losses and the total loss.
-        loss_averages = tf.train.ExponentialMovingAverage(0.9, name='avg')
-        loss_averages_op = loss_averages.apply([loss])
-
-        # Name each loss as '(raw)' and name the moving average version of the loss
-        # as the original loss name.
-        tf.summary.scalar(loss.op.name + ' (raw)', loss)
-        tf.summary.scalar(loss.op.name, loss_averages.average(loss))
-
+        
         # Decay the learning rate exponentially based on the number of steps.
         learning_rate = tf.train.exponential_decay(FLAGS.initial_learning_rate,
                                                    global_step,
@@ -97,12 +86,38 @@ def train():
         # # or use fixed learning rate
         # learning_rate = 1e-3
 
-        # Compute gradients.
+        #####################################
+        # gpu start
+        # with tf.device('/gpu:%d' % FLAGS.gpu_id):
+        batch_manager = geonet_data.BatchManager()
+        print('%s: %d files' % (datetime.now(), batch_manager.num_examples_per_epoch))
+
+        x, y = batch_manager.batch()
+
+        # Build a Graph
+        y_hat = geonet_model.inference(x, FLAGS.image_width, FLAGS.is_train, model=FLAGS.model)
+
+        # Calculate loss.
+        loss = geonet_model.loss(y_hat, y)
+
+        # Compute the moving average of all individual losses and the total loss.
+        loss_averages = tf.train.ExponentialMovingAverage(0.9, name='avg')
+        loss_averages_op = loss_averages.apply([loss])
+
+        # Name each loss as '(raw)' and name the moving average version of the loss
+        # as the original loss name.
+        tf.summary.scalar(loss.op.name + ' (raw)', loss)
+        tf.summary.scalar(loss.op.name, loss_averages.average(loss))
+
         with tf.control_dependencies([loss_averages_op]):
             opt = tf.train.AdamOptimizer(learning_rate)
             grads = opt.compute_gradients(loss)
-            max_grad = FLAGS.clip_gradients / learning_rate
-            grads = [(tf.clip_by_value(grad, -max_grad, max_grad), var) for grad, var in grads]
+
+        # gradient clipping
+        max_grad = FLAGS.clip_gradients / learning_rate
+        grads = [(tf.clip_by_value(grad, -max_grad, max_grad), var) for grad, var in grads]
+        # gpu end
+        #####################################
 
         apply_gradient_op = opt.apply_gradients(grads, global_step=global_step)
 
@@ -113,10 +128,10 @@ def train():
 
         # Track the moving averages of all trainable variables.
         variable_averages = tf.train.ExponentialMovingAverage(FLAGS.moving_avg_decay, global_step)
-        variable_averages_op = variable_averages.apply(tf.trainable_variables())
+        variables_averages_op = variable_averages.apply(tf.trainable_variables())
 
-        with tf.control_dependencies([apply_gradient_op, variable_averages_op]):
-            train_op = tf.no_op(name='train')
+        # Group all updates to into a single train op.
+        train_op = tf.group(apply_gradient_op, variables_averages_op)
 
 
         ####################################################################
@@ -154,12 +169,12 @@ def train():
         ####################################################################
         # Start to train.
         print('%s: start to train' % datetime.now())
+        batch_manager.start_thread(sess)
         start_step = tf.train.global_step(sess, global_step)
         for step in xrange(start_step, FLAGS.max_steps):
             # Train one step.
             start_time = time.time()
-            x_batch, y_batch = batch_manager.batch()
-            _, loss_value = sess.run([train_op, loss], feed_dict={x: x_batch, y: y_batch})
+            _, loss_value, x_batch, y_batch = sess.run([train_op, loss, x, y])
             duration = time.time() - start_time
 
             assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
@@ -174,11 +189,18 @@ def train():
             if step % FLAGS.summary_steps == 0 or step < 100:
                 new_shape = [FLAGS.max_images, FLAGS.image_height, FLAGS.image_width, 1]
                 x_ = x_batch[:FLAGS.max_images,:]
-                x_ = np.reshape((x_+1.0)*127.5, new_shape).astype(np.uint8)
                 y_ = y_batch[:FLAGS.max_images,:]
-                y_ = np.reshape((y_+1.0)*127.5, new_shape).astype(np.uint8)
                 y_hat_ = sess.run(y_hat, feed_dict={x: x_batch, y: y_batch})
-                y_hat_ = ((y_hat_+1.0)*127.5).astype(np.uint8)
+                
+                if FLAGS.model == 1:
+                    x_ = np.reshape((x_+1.0)*127.5, new_shape).astype(np.uint8)
+                    y_ = np.reshape((y_+1.0)*127.5, new_shape).astype(np.uint8)
+                    y_hat_ = ((y_hat_+1.0)*127.5).astype(np.uint8)
+                else:
+                    x_ = np.reshape(x_*255.0, new_shape).astype(np.uint8)
+                    y_ = np.reshape(y_*255.0, new_shape).astype(np.uint8)
+                    y_hat_ = (y_hat_*255.0).astype(np.uint8)
+    
                 summary_str, x_summary_str, y_summary_str, y_hat_summary_str = sess.run(
                     [summary_op, x_summary, y_summary, y_hat_summary],
                     feed_dict={x: x_batch, y: y_batch, 
@@ -202,10 +224,11 @@ def train():
                 summary_y_hat_writer.add_summary(y_hat_summary_tmp, step)
 
             # Save the model checkpoint periodically.
-            if step % FLAGS.save_steps == 0 or (step + 1) == FLAGS.max_steps:
+            if (step + 1) % FLAGS.save_steps == 0 or (step + 1) == FLAGS.max_steps:
                 checkpoint_path = os.path.join(FLAGS.log_dir, 'geonet.ckpt')
                 saver.save(sess, checkpoint_path, global_step=global_step)
 
+        batch_manager.stop_thread()
         print('done')
 
 

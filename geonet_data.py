@@ -8,58 +8,42 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import sys
-import os
 from six.moves import xrange  # pylint: disable=redefined-builtin
-import io
-from random import shuffle
-import copy
-import multiprocessing.managers
-import multiprocessing.pool
-from functools import partial
-import platform
-import time
+import os
 from datetime import datetime
+import time
+import threading
+import random
+import multiprocessing
+import signal
+import sys
+
+import scipy.io
+from skimage import transform
 
 import numpy as np
 import matplotlib.pyplot as plt
-from PIL import Image
-from skimage import transform
-from scipy import stats
-import scipy.io
 
 import tensorflow as tf
 
 
 # parameters
-FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('data_dir', 'data/sketch',
-                           """Path to data directory.""")
-tf.app.flags.DEFINE_integer('image_width', 128,
-                            """Image Width.""")
-tf.app.flags.DEFINE_integer('image_height', 128,
-                            """Image Height.""")
-tf.app.flags.DEFINE_integer('batch_size', 8,
-                            """Number of images to process in a batch.""")
-tf.app.flags.DEFINE_integer('num_processors', 8,
-                            """# of processors for batch generation.""")
-tf.app.flags.DEFINE_boolean('transform', True,
-                          """whether to transform or not""")
-tf.app.flags.DEFINE_float('range_max', 0.00777,
-                          """max range for normalization""")
-
-
-class MPManager(multiprocessing.managers.SyncManager):
-    pass
-MPManager.register('np_empty', np.empty, multiprocessing.managers.ArrayProxy)
-
-
-class Param(object):
-    def __init__(self):
-        self.image_width = FLAGS.image_width
-        self.image_height = FLAGS.image_height
-        self.transform = FLAGS.transform
-        self.range_max = FLAGS.range_max
+flags = tf.app.flags
+flags.DEFINE_string('data_dir', 'data/sketch',
+                    """Path to data directory.""")
+flags.DEFINE_integer('image_width', 128,
+                     """Image Width.""")
+flags.DEFINE_integer('image_height', 128,
+                     """Image Height.""")
+flags.DEFINE_integer('batch_size', 8,
+                     """Number of images to process in a batch.""")
+flags.DEFINE_integer('num_threads', 8,
+                     """# of threads for batch generation.""")
+flags.DEFINE_boolean('transform', True,
+                     """whether to transform or not""")
+flags.DEFINE_float('range_max', 0.00777,
+                   """max range for normalization""")
+FLAGS = flags.FLAGS
 
 
 class BatchManager(object):
@@ -88,54 +72,66 @@ class BatchManager(object):
         self.num_examples_per_epoch = len(self._data_list)
         self.num_epoch = 1
 
-        if FLAGS.num_processors > FLAGS.batch_size:
-            FLAGS.num_processors = FLAGS.batch_size
+        num_cpus = multiprocessing.cpu_count()
+        FLAGS.num_threads = np.amin([FLAGS.num_threads, FLAGS.batch_size, num_cpus])
+        
+        image_shape = [FLAGS.image_height, FLAGS.image_width, 1]
+        self._q = tf.FIFOQueue(FLAGS.batch_size*10, [tf.float32, tf.float32], shapes=[image_shape, image_shape])
 
-        if FLAGS.num_processors == 1:
-            self.x_batch = np.zeros([FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1], dtype=np.float)
-            self.y_batch = np.zeros([FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1], dtype=np.float)
-        else:
-            self._mpmanager = MPManager()
-            self._mpmanager.start()
-            self._pool = multiprocessing.pool.Pool(processes=FLAGS.num_processors)
-
-            self.x_batch = self._mpmanager.np_empty([FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1], dtype=np.float)
-            self.y_batch = self._mpmanager.np_empty([FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1], dtype=np.float)
-            self._batch = self._mpmanager.list(['' for _ in xrange(FLAGS.batch_size)])
-            self._func = partial(train_set, batch=self._batch, x_batch=self.x_batch, y_batch=self.y_batch, FLAGS=Param())
-
-
-    def __del__(self):
-        if FLAGS.num_processors > 1:
-            self._pool.terminate() # or close
-            self._pool.join()
+        self._x = tf.placeholder(dtype=tf.float32, shape=image_shape)
+        self._y = tf.placeholder(dtype=tf.float32, shape=image_shape)
+        self._enqueue = self._q.enqueue([self._x, self._y])
 
 
     def batch(self):
-        if FLAGS.num_processors == 1:
-            _batch = []
-            for i in xrange(FLAGS.batch_size):
-                _batch.append(self._data_list[self._next_id])
-                train_set(i, _batch, self.x_batch, self.y_batch, FLAGS)
-                self._next_id = (self._next_id + 1) % len(self._data_list)
-                if self._next_id == 0:
-                    self.num_epoch = self.num_epoch + 1
-                    shuffle(self._data_list)
-        else:
-            for i in xrange(FLAGS.batch_size):
-                self._batch[i] = self._data_list[self._next_id]
-                self._next_id = (self._next_id + 1) % len(self._data_list)
-                if self._next_id == 0:
-                    self.num_epoch = self.num_epoch + 1
-                    shuffle(self._data_list)
+        return self._q.dequeue_many(FLAGS.batch_size)
 
-            self._pool.map(self._func, range(FLAGS.batch_size))
+    def start_thread(self, sess):
+        # Main thread: create a coordinator.
+        self._coord = tf.train.Coordinator()
 
-        return self.x_batch, self.y_batch
+        # Create a method for loading and enqueuing
+        def load_n_enqueue(sess, enqueue, coord, x, y, data_list, FLAGS):
+            while not coord.should_stop():
+                file_path = random.choice(data_list)
+                x_, y_ = preprocess(file_path, FLAGS)
+                sess.run(enqueue, feed_dict={x: x_, y: y_})
+
+        # Create threads that enqueue
+        self._threads = [threading.Thread(target=load_n_enqueue, 
+                                          args=(sess, 
+                                                self._enqueue,
+                                                self._coord,
+                                                self._x,
+                                                self._y,
+                                                self._data_list,
+                                                FLAGS)
+                                          ) for i in xrange(FLAGS.num_threads)]
+
+        # define signal handler
+        def signal_handler(signum,frame):
+			#print "stop training, save checkpoint..."
+			#saver.save(sess, "./checkpoints/VDSR_norm_clip_epoch_%03d.ckpt" % epoch ,global_step=global_step)
+			sess.run(self._q.close(cancel_pending_enqueues=True))
+			self._coord.request_stop()
+			self._coord.join(self._threads)
+			sys.exit(1)
+        signal.signal(signal.SIGINT, signal_handler)
+
+        # Start the threads and wait for all of them to stop.
+        for t in self._threads:
+            t.start()
+
+    def stop_thread(self):
+        self._coord.request_stop()
+        self._coord.join(self._threads)
 
 
-def train_set(batch_id, batch, x_batch, y_batch, FLAGS):
-    x = scipy.io.loadmat(batch[batch_id])['result'] / 127.5 - 1.0 # [-1, 1]
+def preprocess(file_path, FLAGS):
+    if FLAGS.model == 1:
+        x = scipy.io.loadmat(file_path)['result'] / 127.5 - 1.0 # [-1, 1]
+    else:
+        x = scipy.io.loadmat(file_path)['result'] / 255.0 # [0, 1]
 
     if FLAGS.transform:
         np.random.seed()
@@ -179,9 +175,13 @@ def train_set(batch_id, batch, x_batch, y_batch, FLAGS):
         x_crop = x
 
     # transform y in the same way
-    dir_path, file_path =  os.path.split(batch[batch_id])
-    y_path = os.path.join(dir_path, 'disp'+file_path)
-    y = scipy.io.loadmat(y_path)['result'] / FLAGS.range_max # [-1, 1]
+    dir_path, file_name =  os.path.split(file_path)
+    y_path = os.path.join(dir_path, 'disp'+file_name)
+    if FLAGS.model == 1:
+        y = scipy.io.loadmat(y_path)['result'] / FLAGS.range_max # [-1, 1]
+    else:
+        y = scipy.io.loadmat(y_path)['result'] / FLAGS.range_max * 0.5 + 0.5 # [0, 1]
+
     # print(batch[batch_id], np.amin(y), np.amax(y), np.average(y))
 
     if FLAGS.transform:
@@ -203,29 +203,7 @@ def train_set(batch_id, batch, x_batch, y_batch, FLAGS):
     # plt.imshow((y_crop + 1.0) * 0.5, cmap=plt.cm.gray, clim=(0.0, 1.0))
     # plt.show()
 
-    x_batch[batch_id,:,:,0] = x_crop
-    y_batch[batch_id,:,:,0] = y_crop
-
-
-def split_dataset():
-    file_list = []
-    for root, _, files in os.walk(FLAGS.data_dir):
-        for file in files:
-            if not file.lower().endswith('png'):
-                continue
-
-            file_path = os.path.join(root, file)
-            file_list.append(file_path)
-
-    num_files = len(file_list)
-    ids = np.random.permutation(num_files)
-    train_id = int(num_files * 0.9)
-    with open(os.path.join(FLAGS.data_dir,'train.txt'), 'w') as f: 
-        for id in ids[:train_id]:
-            f.write(file_list[id] + '\n')
-    with open(os.path.join(FLAGS.data_dir,'test.txt'), 'w') as f: 
-        for id in ids[train_id:]:
-            f.write(file_list[id] + '\n')
+    return x_crop[...,np.newaxis], y_crop[...,np.newaxis]
 
 
 def show_sketches():
@@ -290,31 +268,33 @@ if __name__ == '__main__':
         working_path = os.path.join(current_path, 'geonet')
         os.chdir(working_path)
 
-    # # for debug
-    # show_sketches()
-    # show_displaments()
-
-
     # parameters 
-    tf.app.flags.DEFINE_string('file_list', 'train.txt', """file_list""")
-    FLAGS.num_processors = 1
+    flags.DEFINE_string('file_list', 'train.txt', """file_list""")
+    FLAGS.num_threads = 8
+
+
+    # # for debug
+    show_sketches()
+    show_displaments()
+    # preprocess('data/sketch/2812_level0.mat', FLAGS)
+
 
     batch_manager = BatchManager()
+    x, y = batch_manager.batch()
 
     sess = tf.Session()
-    x = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1])
-    y = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1])
+    batch_manager.start_thread(sess)
 
     test_iter = 1
     start_time = time.time()
     for _ in xrange(test_iter):
-        x_batch, y_batch = batch_manager.batch()
-        x_, y_ = sess.run([x, y], feed_dict={x: x_batch, y: y_batch})
+        x_batch, y_batch = sess.run([x, y])
     duration = time.time() - start_time
     duration = duration / test_iter
+    batch_manager.stop_thread()
 
     print ('%s: %.3f sec/batch' % (datetime.now(), duration))
-    
+
     plt.figure()
     for i in xrange(FLAGS.batch_size):
         x = np.reshape(x_batch[i,:], [FLAGS.image_height, FLAGS.image_width])
