@@ -72,7 +72,6 @@ def train():
 
         batch_manager = geonet_data.BatchManager()
         print('%s: %d files' % (datetime.now(), batch_manager.num_examples_per_epoch))
-
         x, y = batch_manager.batch()
 
         # Build a Graph that computes the logits predictions from the inference model.
