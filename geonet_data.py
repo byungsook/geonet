@@ -155,8 +155,9 @@ def train_set(batch_id, batch, x_batch, y_batch, w_batch, FLAGS):
         x_img = Image.open(x_path)
         x = np.array(x_img)[:,:,0].astype(np.float) / 255.0
     else:
-        RANGE_MAX = 0.131
+        RANGE_MAX = 0.2
         x = scipy.io.loadmat(x_path)['result'] / RANGE_MAX * 0.5 + 0.5 # [0, 1]
+        # x = scipy.io.loadmat(x_path)['result']
         # print(x_path, np.amin(x), np.amax(x), np.average(x))
 
     if FLAGS.transform:
@@ -200,6 +201,7 @@ def train_set(batch_id, batch, x_batch, y_batch, w_batch, FLAGS):
         y = np.array(y_img)[:,:,0].astype(np.float) / 255.0
     else:
         y = scipy.io.loadmat(batch[batch_id])['result'] / RANGE_MAX * 0.5 + 0.5 # [0, 1]
+        # y = scipy.io.loadmat(batch[batch_id])['result']
         # print(batch[batch_id], np.amin(y), np.amax(y), np.average(y))
 
     if FLAGS.transform:
@@ -297,7 +299,7 @@ if __name__ == '__main__':
         os.chdir(working_path)
 
     # parameters 
-    tf.app.flags.DEFINE_string('file_list', 'test_mat.txt', """file_list""")
+    tf.app.flags.DEFINE_string('file_list', 'train_mat.txt', """file_list""")
     tf.app.flags.DEFINE_boolean('is_train', True, """is train""")
     FLAGS.num_processors = 1
     # # eval

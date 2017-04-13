@@ -113,7 +113,7 @@ def run():
         f.write('%s: %d/%d-%s start to process\n' % (datetime.now(), file_id+1, num_files, file_name))
         
         # matrix input
-        RANGE_MAX = 0.075
+        RANGE_MAX = 0.2
         x = scipy.io.loadmat(file_path)['result'] / RANGE_MAX * 0.5 + 0.5 # [0, 1]
 
         # # image input
