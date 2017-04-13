@@ -34,7 +34,7 @@ tf.app.flags.DEFINE_string('data_dir', 'data/10FacialModels_whole',
                            """and checkpoint.""")
 tf.app.flags.DEFINE_string('file_list', 'test_mat.txt',
                            """file_list""")
-tf.app.flags.DEFINE_string('pretrained_model_checkpoint_path', 'log/face_whole_0.01_32/geonet.ckpt-100000',
+tf.app.flags.DEFINE_string('checkpoint_dir', 'log/face_whole_0.01_32',
                            """If specified, restore this pretrained model.""")
 tf.app.flags.DEFINE_float('moving_avg_decay', 0.9999,
                           """The decay to use for the moving average.""")
@@ -93,12 +93,20 @@ def run():
     # saver = tf.train.Saver()
 
     # Start evaluation
-    sess = tf.Session()
-    if FLAGS.pretrained_model_checkpoint_path:
-        # assert tf.gfile.Exists(FLAGS.pretrained_model_checkpoint_path)
-        saver.restore(sess, FLAGS.pretrained_model_checkpoint_path)
-        print('%s: Pre-trained model restored from %s' %
-            (datetime.now(), FLAGS.pretrained_model_checkpoint_path))
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    config.allow_soft_placement = True
+    config.log_device_placement = FLAGS.log_device_placement
+    sess = tf.Session(config=config)
+
+    # Create a saver (restorer).
+    saver = tf.train.Saver()
+    ckpt = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
+    if ckpt and FLAGS.checkpoint_dir:
+        ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
+        saver.restore(sess, os.path.join(FLAGS.checkpoint_dir, ckpt_name))
+        print('%s: Pre-trained model restored from %s' % 
+            (datetime.now(), ckpt_name))
     else:
         print('cannot find pretrained model')
         assert(False)

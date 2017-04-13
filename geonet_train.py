@@ -11,6 +11,7 @@ from __future__ import print_function
 from datetime import datetime
 import os
 import time
+import pprint
 
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import numpy as np
@@ -20,42 +21,43 @@ import geonet_model
 import geonet_data
 
 # parameters
-FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('log_dir', 'log/test',
-                           """Directory where to write event logs """
-                           """and checkpoint.""")
-tf.app.flags.DEFINE_boolean('log_device_placement', False,
-                            """Whether to log device placement.""")
-tf.app.flags.DEFINE_string('pretrained_model_checkpoint_path', '',
-                           """If specified, restore this pretrained model """
-                           """before beginning any training.
-                           e.g. log/test/geonet.ckpt """)
-tf.app.flags.DEFINE_integer('model', 2, # [1-2]
-                            """type of training model.""")
-tf.app.flags.DEFINE_integer('max_steps', 10, # 20000
-                            """Number of batches to run.""")
-tf.app.flags.DEFINE_integer('decay_steps', 30000,
-                            """Decay steps""")
-tf.app.flags.DEFINE_float('initial_learning_rate', 0.01,
-                          """Initial learning rate.""")
-tf.app.flags.DEFINE_float('learning_decay_factor', 0.1,
-                          """Learning rate decay factor.""")
-tf.app.flags.DEFINE_float('moving_avg_decay', 0.9999,
-                          """The decay to use for the moving average.""")
-tf.app.flags.DEFINE_float('clip_gradients', 0.1,
-                          """range for clipping gradients.""")
-tf.app.flags.DEFINE_integer('max_images', 1,
-                            """max # images to save.""")
-tf.app.flags.DEFINE_integer('stat_steps', 10,
-                            """statistics steps.""")
-tf.app.flags.DEFINE_integer('summary_steps', 100,
-                            """summary steps.""")
-tf.app.flags.DEFINE_integer('save_steps', 5000,
-                            """save steps""")
-tf.app.flags.DEFINE_string('file_list', 'train_mat.txt',
-                           """file_list""")
-tf.app.flags.DEFINE_boolean('is_train', True,
-                            """whether it is training or not""")
+flags = tf.app.flags
+flags.DEFINE_string('log_dir', 'log/test',
+                    """Directory where to write event logs """
+                    """and checkpoint.""")
+flags.DEFINE_boolean('log_device_placement', False,
+                     """Whether to log device placement.""")
+flags.DEFINE_string('checkpoint_dir', '',
+                    """If specified, restore this pretrained model """
+                    """before beginning any training.
+                    e.g. log/test""")
+flags.DEFINE_integer('model', 1, # [1-2]
+                     """type of training model.""")
+flags.DEFINE_integer('max_steps', 10, # 50000
+                     """Number of batches to run.""")
+flags.DEFINE_integer('decay_steps', 30000,
+                     """Decay steps""")
+flags.DEFINE_float('initial_learning_rate', 0.01,
+                   """Initial learning rate.""")
+flags.DEFINE_float('learning_decay_factor', 0.1,
+                   """Learning rate decay factor.""")
+flags.DEFINE_float('moving_avg_decay', 0.9999,
+                   """The decay to use for the moving average.""")
+flags.DEFINE_float('clip_gradients', 0.1,
+                   """range for clipping gradients.""")
+flags.DEFINE_integer('max_images', 1,
+                     """max # images to save.""")
+flags.DEFINE_integer('stat_steps', 10,
+                     """statistics steps.""")
+flags.DEFINE_integer('summary_steps', 100,
+                     """summary steps.""")
+flags.DEFINE_integer('save_steps', 5000,
+                     """save steps""")
+flags.DEFINE_string('file_list', 'train_mat.txt',
+                    """file_list""")
+flags.DEFINE_boolean('is_train', True,
+                     """whether it is training or not""")
+FLAGS = flags.FLAGS
 
 
 def train():
@@ -119,7 +121,7 @@ def train():
 
         # Track the moving averages of all trainable variables.
         variable_averages = tf.train.ExponentialMovingAverage(FLAGS.moving_avg_decay, global_step)
-        variable_averages_op = variable_averages.apply(tf.trainable_variables())
+        variables_averages_op = variable_averages.apply(tf.trainable_variables())
 
         train_op = tf.group(apply_gradient_op, variables_averages_op)
 
@@ -149,7 +151,6 @@ def train():
         summary_writer = tf.summary.FileWriter(FLAGS.log_dir, sess.graph)
         summary_y_writer = tf.summary.FileWriter(FLAGS.log_dir + '/y', sess.graph)
         summary_y_hat_writer = tf.summary.FileWriter(FLAGS.log_dir + '/y_hat', sess.graph)
-        summary_w_writer = tf.summary.FileWriter(FLAGS.log_dir + '/w', sess.graph)
 
         x_u8 = tf.placeholder(dtype=tf.uint8, shape=[None, FLAGS.image_height, FLAGS.image_width, 1])
         y_u8 = tf.placeholder(dtype=tf.uint8, shape=[None, FLAGS.image_height, FLAGS.image_width, 1])
@@ -157,7 +158,6 @@ def train():
         x_summary = tf.summary.image('x', x_u8, max_outputs=FLAGS.max_images)
         y_summary = tf.summary.image('y', y_u8, max_outputs=FLAGS.max_images)
         y_hat_summary = tf.summary.image('y_hat', y_hat_u8, max_outputs=FLAGS.max_images)
-        w_summary = tf.summary.image('w', w, max_outputs=FLAGS.max_images)
 
         ####################################################################
         # Start to train.
@@ -167,7 +167,6 @@ def train():
         for step in xrange(start_step, FLAGS.max_steps):
             # Train one step.
             start_time = time.time()
-            x_batch, y_batch, w_batch = batch_manager.batch()
             _, loss_value, x_batch, y_batch = sess.run([train_op, loss, x, y], 
                                                        feed_dict={phase_train: FLAGS.is_train})
             duration = time.time() - start_time
@@ -185,14 +184,14 @@ def train():
                 new_shape = [FLAGS.max_images, FLAGS.image_height, FLAGS.image_width, 1]
                 x_ = x_batch[:FLAGS.max_images,:]
                 y_ = y_batch[:FLAGS.max_images,:]
-                y_hat_ = sess.run(y_hat, feed_dict={phase_train: False})
+                y_hat_ = sess.run(y_hat, feed_dict={phase_train: False, x: x_batch, y: y_batch})
                 x_ = np.reshape(x_*255.0, new_shape).astype(np.uint8)
                 y_ = np.reshape(y_*255.0, new_shape).astype(np.uint8)
-                y_hat_ = (y_hat_*255.0).astype(np.uint8)
+                y_hat_ = np.clip(y_hat_*255.0, 0, 255).astype(np.uint8)
 
-                summary_str, x_summary_str, y_summary_str, y_hat_summary_str, w_summary_str = sess.run(
-                    [summary_op, x_summary, y_summary, y_hat_summary, w_summary],
-                    feed_dict={phase_train: FLAGS.is_train, x: x_batch, y: y_batch, w: w_batch,
+                summary_str, x_summary_str, y_summary_str, y_hat_summary_str = sess.run(
+                    [summary_op, x_summary, y_summary, y_hat_summary],
+                    feed_dict={phase_train: FLAGS.is_train, x: x_batch, y: y_batch,
                                x_u8: x_, y_u8: y_, y_hat_u8: y_hat_})
                 summary_writer.add_summary(summary_str, step)
                 
@@ -211,13 +210,6 @@ def train():
                 summary_writer.add_summary(x_summary_tmp, step)
                 summary_y_writer.add_summary(y_summary_tmp, step)
                 summary_y_hat_writer.add_summary(y_hat_summary_tmp, step)
-
-                if FLAGS.weight_on:
-                    w_summary_tmp = tf.Summary()
-                    w_summary_tmp.ParseFromString(w_summary_str)
-                    for i in xrange(FLAGS.max_images):
-                        w_summary_tmp.value[i].tag = new_tag
-                    summary_w_writer.add_summary(w_summary_tmp, step)
 
             # Save the model checkpoint periodically.
             if (step + 1) % FLAGS.save_steps == 0 or (step + 1) == FLAGS.max_steps:

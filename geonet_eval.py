@@ -21,24 +21,24 @@ import geonet_model
 import geonet_data
 
 # parameters
-FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('eval_dir', 'eval/test',
-                           """Directory where to write event logs """
-                           """and checkpoint.""")
-tf.app.flags.DEFINE_string('pretrained_model_checkpoint_path', 'log/test/geonet.ckpt',
-                           """If specified, restore this pretrained model.""")
-tf.app.flags.DEFINE_integer('model', 2, # [1-2]
-                            """type of training model.""")
-tf.app.flags.DEFINE_float('moving_avg_decay', 0.9999,
-                          """The decay to use for the moving average.""")
-tf.app.flags.DEFINE_integer('max_images', 8,
-                            """max # images to save.""")
-tf.app.flags.DEFINE_string('file_list', 'test.txt',
-                           """file_list""")
-tf.app.flags.DEFINE_integer('num_epoch', 1, # 10
-                            """# epoch""")
-tf.app.flags.DEFINE_boolean('is_train', False,
-                            """whether it is training or not""")
+flags = tf.app.flags
+flags.DEFINE_string('eval_dir', 'eval/test',
+                    """Directory where to write event logs """
+                    """and checkpoint.""")
+flags.DEFINE_string('checkpoint_dir', 'log/test',
+                    """If specified, restore this pretrained model.""")
+flags.DEFINE_integer('model', 1, # [1-2]
+                     """type of training model.""")
+flags.DEFINE_float('moving_avg_decay', 0.9999,
+                   """The decay to use for the moving average.""")
+flags.DEFINE_integer('max_images', 8,
+                     """max # images to save.""")
+flags.DEFINE_string('file_list', 'test.txt',
+                    """file_list""")
+flags.DEFINE_integer('num_epoch', 1, # 10
+                     """# epoch""")
+flags.DEFINE_boolean('is_train', False,
+                     """whether it is training or not""")
 
 
 def evaluate():
@@ -49,9 +49,10 @@ def evaluate():
         global_step = tf.Variable(0, name='global_step', trainable=False)
         phase_train = tf.placeholder(tf.bool, name='phase_train')
 
-        x = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1])
-        y = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, FLAGS.image_height, FLAGS.image_width, 1])
-        
+        batch_manager = geonet_data.BatchManager()
+        print('%s: %d files' % (datetime.now(), batch_manager.num_examples_per_epoch))
+        x, y = batch_manager.batch()
+
         # Build a Graph that computes the logits predictions from the inference model.
         y_hat = geonet_model.inference(x, phase_train, model=FLAGS.model)
 
@@ -85,28 +86,35 @@ def evaluate():
         y_hat_summary = tf.summary.image('y_hat', y_hat_u8, max_outputs=FLAGS.max_images)
 
         # Start evaluation
-        with tf.Session() as sess:
-            if FLAGS.pretrained_model_checkpoint_path:
-                # assert tf.gfile.Exists(FLAGS.pretrained_model_checkpoint_path)
-                saver.restore(sess, FLAGS.pretrained_model_checkpoint_path)
-                print('%s: Pre-trained model restored from %s' %
-                    (datetime.now(), FLAGS.pretrained_model_checkpoint_path))
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True
+        config.allow_soft_placement = True
+        config.log_device_placement = FLAGS.log_device_placement
+        with tf.Session(config=config) as sess:
+            saver = tf.train.Saver()
+            ckpt = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
+            assert(ckpt and FLAGS.checkpoint_dir)
+            ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
+            saver.restore(sess, os.path.join(FLAGS.checkpoint_dir, ckpt_name))
+            print('%s: Pre-trained model restored from %s' % 
+                (datetime.now(), ckpt_name))
 
+            batch_manager.start_thread(sess)
             num_eval = batch_manager.num_examples_per_epoch * FLAGS.num_epoch
             num_iter = int(math.ceil(num_eval / FLAGS.batch_size))
             print('total iter: %d' % num_iter)
             total_loss = 0
             for step in range(num_iter):
-                start_time = time.time()
-                x_batch, y_batch, _ = batch_manager.batch()
-                y_hat_, loss_value = sess.run([tf.cast(tf.multiply(y_hat, 255.0), tf.uint8), loss], 
-                                                   feed_dict={phase_train: FLAGS.is_train, x: x_batch, y: y_batch})
+                start_time = time.time()                
+                y_hat_, loss_value, x_batch, y_batch = sess.run([y_hat, loss, x, y], 
+                                                                feed_dict={phase_train: FLAGS.is_train})
 
                 new_shape = [FLAGS.max_images, FLAGS.image_height, FLAGS.image_width, 1]
                 x_ = x_batch[:FLAGS.max_images,:]
-                x_ = np.reshape(x_*255.0, new_shape).astype(np.uint8)
                 y_ = y_batch[:FLAGS.max_images,:]
+                x_ = np.reshape(x_*255.0, new_shape).astype(np.uint8)
                 y_ = np.reshape(y_*255.0, new_shape).astype(np.uint8)
+                y_hat_ = np.clip(y_hat_*255.0, 0, 255).astype(np.uint8)
 
                 total_loss += loss_value
                 duration = time.time() - start_time
