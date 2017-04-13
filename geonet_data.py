@@ -137,31 +137,30 @@ def preprocess(file_path, FLAGS):
     if FLAGS.transform:
         np.random.seed()
 
-        while True:
-            # random flip and rotate
-            flip = (np.random.rand() > 0.5)
-            if flip:
-                x_rotate = np.fliplr(x)
-            else:
-                x_rotate = x
-            r = np.random.rand() * 360.0
-            x_rotate = transform.rotate(x_rotate, r, order=3, mode='symmetric')
+        # random flip and rotate
+        flip = (np.random.rand() > 0.5)
+        if flip:
+            x_rotate = np.fliplr(x)
+        else:
+            x_rotate = x
+        r = np.random.rand() * 360.0
+        x_rotate = transform.rotate(x_rotate, r, order=3, mode='symmetric')
 
-            # # debug
-            # plt.figure()
-            # plt.subplot(131)
-            # plt.imshow(x, cmap=plt.cm.gray)
-            # plt.subplot(132)
-            # plt.imshow(x_rotate, cmap=plt.cm.gray)
-            # plt.subplot(133)
-            # plt.imshow(transform.rotate(x, r, resize=True, mode='symmetric'), cmap=plt.cm.gray)
-            # plt.show()
+        # # debug
+        # plt.figure()
+        # plt.subplot(131)
+        # plt.imshow(x, cmap=plt.cm.gray)
+        # plt.subplot(132)
+        # plt.imshow(x_rotate, cmap=plt.cm.gray)
+        # plt.subplot(133)
+        # plt.imshow(transform.rotate(x, r, resize=True, mode='symmetric'), cmap=plt.cm.gray)
+        # plt.show()
 
-            # random left corner
-            image_shape = x.shape
-            lc_r = np.random.randint(image_shape[0]-FLAGS.image_height+1)
-            lc_c = np.random.randint(image_shape[1]-FLAGS.image_width+1)
-            x_crop = x_rotate[lc_r:lc_r+FLAGS.image_height, lc_c:lc_c+FLAGS.image_width]
+        # random left corner
+        image_shape = x.shape
+        lc_r = np.random.randint(image_shape[0]-FLAGS.image_height+1)
+        lc_c = np.random.randint(image_shape[1]-FLAGS.image_width+1)
+        x_crop = x_rotate[lc_r:lc_r+FLAGS.image_height, lc_c:lc_c+FLAGS.image_width]
     else:
         assert(x.shape[0] == FLAGS.image_height and x.shape[1] == FLAGS.image_width)
         x_crop = x
@@ -225,8 +224,7 @@ if __name__ == '__main__':
     flags.DEFINE_integer('model', 1, """network model id""")
     FLAGS.num_threads = 8
 
-
-    # # for debug
+    # for debug
     preprocess('data/faces_low_res/maps/100k/original/CG.mat', FLAGS)
 
 
