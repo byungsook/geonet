@@ -132,7 +132,7 @@ class BatchManager(object):
 def preprocess(file_path, FLAGS):
     dir_path, x_path = os.path.split(file_path)
     x_path = dir_path + ('/../%s/' % FLAGS.noise_level)  + x_path[:-4] + ('_%s' % FLAGS.noise_level) + x_path[-4:]
-    x = scipy.io.loadmat(x_path)['result'] / 255.0 # [0, 1]
+    x = scipy.io.loadmat(x_path)['result'] / FLAGS.range_max * 0.5 + 0.5 # [0, 1]
 
     if FLAGS.transform:
         np.random.seed()
@@ -220,7 +220,7 @@ if __name__ == '__main__':
         os.chdir(working_path)
 
     # parameters 
-    flags.DEFINE_string('file_list', 'train.txt', """file_list""")
+    flags.DEFINE_string('file_list', 'train_mat.txt', """file_list""")
     flags.DEFINE_integer('model', 1, """network model id""")
     FLAGS.num_threads = 8
 
