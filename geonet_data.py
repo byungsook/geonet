@@ -128,6 +128,12 @@ class BatchManager(object):
 
 
 def preprocess(file_path, FLAGS):
+    if np.random.rand() < 0.1:
+        # train on empty space
+        x = np.ones([FLAGS.image_height, FLAGS.image_width, 1], dtype=np.float32)
+        y = np.zeros([FLAGS.image_height, FLAGS.image_width, 1], dtype=np.float32)
+        return x, y
+
     if FLAGS.model == 1:
         x = scipy.io.loadmat(file_path)['result'] / 127.5 - 1.0 # [-1, 1]
     else:
@@ -270,12 +276,13 @@ if __name__ == '__main__':
 
     # parameters 
     flags.DEFINE_string('file_list', 'train.txt', """file_list""")
+    flags.DEFINE_integer('model', 1, """network model id""")
     FLAGS.num_threads = 8
 
 
     # # for debug
-    show_sketches()
-    show_displaments()
+    # show_sketches()
+    # show_displaments()
     # preprocess('data/sketch/2812_level0.mat', FLAGS)
 
 
