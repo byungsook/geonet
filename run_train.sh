@@ -1,4 +1,7 @@
-python geonet_train.py --log_dir=log/vdsr_128 --data_dir=data/sketch --file_list=train.txt --batch_size=8 --image_width=128 --image_height=128 --max_steps=50000 --initial_learning_rate=0.01 --decay_steps=30000 --transform=True --model=2
+python geonet_train.py --log_dir=log/downupflat_256 --data_dir=data/sketch --file_list=train.txt --batch_size=8 --image_width=256 --image_height=256 --max_steps=50000 --initial_learning_rate=0.01 --decay_steps=30000 --transform=True
+./run.sh
+
+# python geonet_train.py --log_dir=log/vdsr_128 --data_dir=data/sketch --file_list=train.txt --batch_size=8 --image_width=128 --image_height=128 --max_steps=50000 --initial_learning_rate=0.01 --decay_steps=30000 --transform=True --model=2
 # python geonet_train.py --log_dir=log/downup_256_cont --checkpoint_dir=log/downup_256 --data_dir=data/sketch --file_list=train.txt --batch_size=8 --image_width=256 --image_height=256 --max_steps=100000 --initial_learning_rate=0.01 --decay_steps=40000 --transform=True
 # python geonet_train.py --log_dir=log/sketch_m2 --data_dir=data/sketch --file_list=train.txt --batch_size=8 --image_width=256 --image_height=256 --max_steps=100000 --initial_learning_rate=0.01 --decay_steps=40000 --transform=True --model=1
 

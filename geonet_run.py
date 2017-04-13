@@ -86,10 +86,12 @@ def run():
     config.allow_soft_placement = True
     config.log_device_placement = False
     sess = tf.Session(config=config)
-    # variable_averages = tf.train.ExponentialMovingAverage(FLAGS.moving_avg_decay)
-    # variables_to_restore = variable_averages.variables_to_restore()
-    # saver = tf.train.Saver(variables_to_restore)
-    saver = tf.train.Saver()
+    if FLAGS.moving_avg_decay > 0:
+        variable_averages = tf.train.ExponentialMovingAverage(FLAGS.moving_avg_decay)
+        variables_to_restore = variable_averages.variables_to_restore()
+        saver = tf.train.Saver(variables_to_restore)
+    else:
+        saver = tf.train.Saver()
     ckpt = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
     if ckpt and FLAGS.checkpoint_dir:
         ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
