@@ -1,6 +1,6 @@
-python geonet_eval.py --eval_dir=eval/100k_128/n1  --pretrained_model_checkpoint_path=log/100k_128/n1/geonet.ckpt-100000 --noise_level=n1 --data_dir=data/faces_low_res/maps/100k/original --file_list=test_mat.txt --batch_size=8 --max_images=8 --num_epoch=100 --image_width=128  --image_height=128 --transform=True --model=1
-python geonet_eval.py --eval_dir=eval/100k_128/n2  --pretrained_model_checkpoint_path=log/100k_128/n2/geonet.ckpt-100000 --noise_level=n2 --data_dir=data/faces_low_res/maps/100k/original --file_list=test_mat.txt --batch_size=8 --max_images=8 --num_epoch=100 --image_width=128  --image_height=128 --transform=True --model=1
-python geonet_eval.py --eval_dir=eval/100k_128/n3  --pretrained_model_checkpoint_path=log/100k_128/n3/geonet.ckpt-100000 --noise_level=n3 --data_dir=data/faces_low_res/maps/100k/original --file_list=test_mat.txt --batch_size=8 --max_images=8 --num_epoch=100 --image_width=128  --image_height=128 --transform=True --model=1
+python geonet_eval.py --eval_dir=eval/100k_128/n1  --checkpoint_dir=log/100k_128/n1 --noise_level=n1 --data_dir=data/faces_low_res/maps/100k/original --file_list=test_mat.txt --batch_size=8 --max_images=8 --num_epoch=100 --image_width=128  --image_height=128 --transform=True --model=1
+python geonet_eval.py --eval_dir=eval/100k_128/n2  --checkpoint_dir=log/100k_128/n2 --noise_level=n2 --data_dir=data/faces_low_res/maps/100k/original --file_list=test_mat.txt --batch_size=8 --max_images=8 --num_epoch=100 --image_width=128  --image_height=128 --transform=True --model=1
+python geonet_eval.py --eval_dir=eval/100k_128/n3  --checkpoint_dir=log/100k_128/n3 --noise_level=n3 --data_dir=data/faces_low_res/maps/100k/original --file_list=test_mat.txt --batch_size=8 --max_images=8 --num_epoch=100 --image_width=128  --image_height=128 --transform=True --model=1
 
 
 # # 26-03-2017, Sun. Eval model 2, noise level 0.01 for 128 patch trained networks

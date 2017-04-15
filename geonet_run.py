@@ -25,25 +25,26 @@ import geonet_model
 
 
 # parameters
-FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('result_dir', 'result/face_whole_0.01_32',
-                           """Directory where to write event logs """
-                           """and checkpoint.""")
-tf.app.flags.DEFINE_string('data_dir', 'data/10FacialModels_whole',
-                           """Directory where to write event logs """
-                           """and checkpoint.""")
-tf.app.flags.DEFINE_string('file_list', 'test_mat.txt',
-                           """file_list""")
-tf.app.flags.DEFINE_string('checkpoint_dir', 'log/face_whole_0.01_32',
-                           """If specified, restore this pretrained model.""")
-tf.app.flags.DEFINE_float('moving_avg_decay', 0.9999,
-                          """The decay to use for the moving average.""")
-tf.app.flags.DEFINE_integer('crop_size', 1024, # 128
-                          """crop size.""")
-tf.app.flags.DEFINE_integer('batch_size', 1, # 16
-                          """batch size.""")
-tf.app.flags.DEFINE_string('noise_level', 'n1',
-                            """noise level.""")
+flags = tf.app.flags
+flags.DEFINE_string('result_dir', 'result/face_whole_0.01_32',
+                    """Directory where to write event logs """
+                    """and checkpoint.""")
+flags.DEFINE_string('data_dir', 'data/10FacialModels_whole',
+                    """Directory where to write event logs """
+                    """and checkpoint.""")
+flags.DEFINE_string('file_list', 'test_mat.txt',
+                    """file_list""")
+flags.DEFINE_string('checkpoint_dir', 'log/face_whole_0.01_32',
+                    """If specified, restore this pretrained model.""")
+flags.DEFINE_float('moving_avg_decay', 0.9999,
+                   """The decay to use for the moving average.""")
+flags.DEFINE_integer('crop_size', 1024, # 128
+                     """crop size.""")
+flags.DEFINE_integer('batch_size', 1, # 16
+                     """batch size.""")
+flags.DEFINE_string('noise_level', 'n1',
+                    """noise level.""")
+FLAGS = flags.FLAGS
 
 
 def run():
@@ -96,7 +97,7 @@ def run():
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
     config.allow_soft_placement = True
-    config.log_device_placement = FLAGS.log_device_placement
+    config.log_device_placement = True
     sess = tf.Session(config=config)
 
     # Create a saver (restorer).

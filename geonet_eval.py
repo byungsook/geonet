@@ -39,13 +39,11 @@ flags.DEFINE_integer('num_epoch', 1, # 10
                      """# epoch""")
 flags.DEFINE_boolean('is_train', False,
                      """whether it is training or not""")
+FLAGS = flags.FLAGS
 
 
 def evaluate():
     with tf.Graph().as_default() as g:
-        batch_manager = geonet_data.BatchManager()
-        print('%s: %d files' % (datetime.now(), batch_manager.num_examples_per_epoch))
-
         global_step = tf.Variable(0, name='global_step', trainable=False)
         phase_train = tf.placeholder(tf.bool, name='phase_train')
 
@@ -89,7 +87,7 @@ def evaluate():
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
         config.allow_soft_placement = True
-        config.log_device_placement = FLAGS.log_device_placement
+        config.log_device_placement = False
         with tf.Session(config=config) as sess:
             saver = tf.train.Saver()
             ckpt = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
@@ -105,7 +103,7 @@ def evaluate():
             print('total iter: %d' % num_iter)
             total_loss = 0
             for step in range(num_iter):
-                start_time = time.time()                
+                start_time = time.time()
                 y_hat_, loss_value, x_batch, y_batch = sess.run([y_hat, loss, x, y], 
                                                                 feed_dict={phase_train: FLAGS.is_train})
 
@@ -150,7 +148,7 @@ def evaluate():
             loss_avg_summary_str = sess.run(loss_avg_summary, feed_dict={loss_avg: loss_avg_})
             g_step = tf.train.global_step(sess, global_step)
             summary_writer.add_summary(loss_avg_summary_str, g_step)
-
+            batch_manager.stop_thread()
     print('done')
 
 
