@@ -195,7 +195,8 @@ def main(_):
     tf.gfile.MakeDirs(FLAGS.result_dir)
 
     # start
-    run()
+    with tf.device('/gpu:1'):
+        run()
 
 
 if __name__ == '__main__':

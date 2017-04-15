@@ -106,12 +106,12 @@ def model1(x, crop_size, train):
         h_conv05 = _deconv2d('05_up', h_conv04, 256, o*2,  train=train) # 16x16x256
         h_conv06 = _deconv2d('06_up', h_conv05, 128, o*4,  train=train) # 32x32x128
         h_conv07 = _deconv2d('07_up', h_conv06, 64,  o*8,  train=train) # 64x64x64
-        # h_conv08 = _deconv2d('08_up', h_conv07, 1,   o*16, train=train, last=True) # 128x128x1
+    #     h_conv08 = _deconv2d('08_up', h_conv07, 1,   o*16, train=train, last=True) # 128x128x1
+    # return h_conv08
 
         h_conv08 = _deconv2d('08_up', h_conv07, 32, o*16, train=train) # 128x128x32
-        h_conv09 = _conv2d('09_flat', h_conv08, 32, 3, 1, train=train) # 128x128x32
-        h_conv10 = _conv2d('10_flat', h_conv09,  1, 3, 1, train=train, last=True) # 128x128x1
-    return h_conv10
+        h_conv09 = _conv2d('10_flat', h_conv08,  1, 5, 1, train=train, last=True) # 128x128x1
+    return h_conv09
 
 
 def inference(x, crop_size, train, model=1):

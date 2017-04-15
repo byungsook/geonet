@@ -1,5 +1,5 @@
-python geonet_run.py --result_dir=result/downupflat_256    --checkpoint_dir=log/downupflat_256 --data_dir=data/sketch --moving_avg_decay=0.0
-python geonet_run.py --result_dir=result/downupflat_256_mv --checkpoint_dir=log/downupflat_256 --data_dir=data/sketch --moving_avg_decay=0.9999
+python geonet_run.py --result_dir=result/downupflat_256_2    --checkpoint_dir=log/downupflat_256_2 --data_dir=data/sketch --moving_avg_decay=0.0
+python geonet_run.py --result_dir=result/downupflat_256_2_mv --checkpoint_dir=log/downupflat_256_2 --data_dir=data/sketch --moving_avg_decay=0.9999
 
 # python geonet_run.py --result_dir=result/downup_256    --checkpoint_dir=log/downup_256 --data_dir=data/sketch --moving_avg_decay=0.0
 # python geonet_run.py --result_dir=result/downup_256_mv --checkpoint_dir=log/downup_256 --data_dir=data/sketch --moving_avg_decay=0.9999
