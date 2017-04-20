@@ -128,11 +128,11 @@ class BatchManager(object):
 
 
 def preprocess(file_path, FLAGS):
-    # if np.random.rand() < 0.1:
-    #     # train on empty space
-    #     x = np.ones([FLAGS.image_height, FLAGS.image_width, 1], dtype=np.float32)
-    #     y = np.zeros([FLAGS.image_height, FLAGS.image_width, 1], dtype=np.float32)
-    #     return x, y
+    if np.random.rand() < 0.1:
+        # train on empty space
+        x = np.ones([FLAGS.image_height, FLAGS.image_width, 1], dtype=np.float32)
+        y = np.zeros([FLAGS.image_height, FLAGS.image_width, 1], dtype=np.float32)
+        return x, y
 
     if FLAGS.model == 1:
         x = scipy.io.loadmat(file_path)['result'] / 127.5 - 1.0 # [-1, 1]

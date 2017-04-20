@@ -110,9 +110,9 @@ def model1(x, crop_size, train):
     # return h_conv08
 
         h_conv08 = _deconv2d('08_up', h_conv07, 32, o*16, train=train) # 128x128x32
-        h_conv09 = _conv2d('10_flat', h_conv08,  1, 5, 1, train=train, last=True) # 128x128x1
-    return h_conv09
-
+        h_conv09 = _conv2d('09_flat', h_conv08, 16, 5, 1, train=train) # 128x128x16
+        h_conv10 = _conv2d('10_flat', h_conv09,  1, 5, 1, train=train, last=True) # 128x128x1
+    return h_conv10
 
 def inference(x, crop_size, train, model=1):
     model_selector = {

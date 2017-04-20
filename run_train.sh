@@ -1,4 +1,11 @@
-python geonet_train.py --log_dir=log/downupflat_256_2 --data_dir=data/sketch --file_list=train.txt --batch_size=8 --image_width=256 --image_height=256 --max_steps=50000 --initial_learning_rate=0.01 --decay_steps=30000 --transform=True
+# flat 2, with empty case, 128x128x16 (k=5), 128x128x1 (k=5)
+python geonet_train.py --log_dir=log/downupflat_256_4 --data_dir=data/sketch --file_list=train.txt --batch_size=8 --image_width=256 --image_height=256 --max_steps=100000 --initial_learning_rate=0.005 --decay_steps=40000 --transform=True
+
+# flat 2, with empty case, 128x128x16 (k=3), 128x128x1 (k=3)
+# python geonet_train.py --log_dir=log/downupflat_256_3 --data_dir=data/sketch --file_list=train.txt --batch_size=8 --image_width=256 --image_height=256 --max_steps=100000 --initial_learning_rate=0.005 --decay_steps=40000 --transform=True
+
+# flat 1, without empty case, 128x128x1 (k=5)
+# python geonet_train.py --log_dir=log/downupflat_256_2 --data_dir=data/sketch --file_list=train.txt --batch_size=8 --image_width=256 --image_height=256 --max_steps=50000 --initial_learning_rate=0.01 --decay_steps=30000 --transform=True
 # ./run.sh
 
 # python geonet_train.py --log_dir=log/vdsr_128 --data_dir=data/sketch --file_list=train.txt --batch_size=8 --image_width=128 --image_height=128 --max_steps=50000 --initial_learning_rate=0.01 --decay_steps=30000 --transform=True --model=2
