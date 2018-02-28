@@ -159,7 +159,11 @@ class Trainer(object):
                     yt_path = os.path.join(self.model_dir, '{}.mat'.format(i))
                     scipy.io.savemat(yt_path, dict(y=ymat))
 
-                    print('test loss: {}, max: {}, min: {}'.format(tl,np.amax(ymat),np.amin(ymat)))
+                    ymat_minmax = [np.amin(ymat),np.amax(ymat)]
+                    minmax_path = os.path.join(self.model_dir, 'minmax{}.txt'.format(i))
+                    with open(minmax_path, 'w') as f:
+                        f.write(ymat_minmax[0] + ' ' + ymat_minmax[1])
+                    print('test loss: {}, min: {}, max: {}'.format(tl,ymat_minmax[0], ymat_minmax[1]))
                     tl_ += tl
                     
                     yt_ = to_nhwc_numpy(yt_)                
