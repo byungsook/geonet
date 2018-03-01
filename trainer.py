@@ -4,6 +4,9 @@ import os
 import numpy as np
 from tqdm import trange
 import scipy.io
+import scipy.misc
+from datetime import datetime
+import time
 
 from models import *
 from utils import save_image
@@ -130,11 +133,11 @@ class Trainer(object):
         self.summary_test = tf.summary.merge(summary)
 
     def train(self):
-        y_list = []
-        for _, y in self.batch_manager.test_batch():
-            y_list.append(y[0]*255)
-        y_list = np.array(y_list)
-        save_image(y_list, '{}/y_gt.png'.format(self.model_dir), nrow=4)
+        # y_list = []
+        # for _, y, _ in self.batch_manager.test_batch():
+        #     y_list.append(y[0]*255)
+        # y_list = np.array(y_list)
+        # save_image(y_list, '{}/y_gt.png'.format(self.model_dir), nrow=4)
         
         for step in trange(self.start_step, self.max_step):
             fetch_dict = {
@@ -149,25 +152,28 @@ class Trainer(object):
 
             if step % self.test_step == self.test_step-1 or step == self.max_step-1:
                 tl_ = 0.0
-                y_list = []
-                for i, (x, y) in enumerate(self.batch_manager.test_batch()):
+                # y_list = []
+                print('\n')
+                for i, (x, y, file_name) in enumerate(self.batch_manager.test_batch()):
                     if self.data_format == 'NCHW':
                         x = to_nchw_numpy(x)
                         y = to_nchw_numpy(y)
                     tl, yt_ = self.sess.run([self.tl, self.yt_], {self.xt: x, self.yt: y})
+                    if self.data_format == 'NCHW':
+                        yt_ = to_nhwc_numpy(yt_)
+                    
+                    # y_list.append(yt_[0]*255)
+
                     ymat = (yt_ - 0.5) * 2.0 * self.batch_manager.range_max
-                    yt_path = os.path.join(self.model_dir, '{}.mat'.format(i))
-                    scipy.io.savemat(yt_path, dict(y=ymat))
+                    # yt_path = os.path.join(self.model_dir, '{}.mat'.format(i))
+                    # scipy.io.savemat(yt_path, dict(y=ymat))
 
                     ymat_minmax = [np.amin(ymat),np.amax(ymat)]
-                    minmax_path = os.path.join(self.model_dir, 'minmax{}.txt'.format(i))
-                    with open(minmax_path, 'w') as f:
-                        f.write(ymat_minmax[0] + ' ' + ymat_minmax[1])
-                    print('test loss: {}, min: {}, max: {}'.format(tl,ymat_minmax[0], ymat_minmax[1]))
+                    # minmax_path = os.path.join(self.model_dir, 'minmax{}.txt'.format(i))
+                    # with open(minmax_path, 'w') as f:
+                    #     f.write(str(ymat_minmax[0]) + ' ' + str(ymat_minmax[1]))
+                    print(file_name + ', test loss: {}, min: {}, max: {}'.format(tl,ymat_minmax[0], ymat_minmax[1]))
                     tl_ += tl
-                    
-                    yt_ = to_nhwc_numpy(yt_)                
-                    y_list.append(yt_[0]*255)
 
                 tl_ /= len(self.batch_manager.paths['test'])
                 print('avg test loss:', tl_)
@@ -176,8 +182,8 @@ class Trainer(object):
                 self.summary_writer.add_summary(summary_test, step)
                 self.summary_writer.flush()
 
-                y_list = np.array(y_list)
-                save_image(y_list, '{}/y_{}.png'.format(self.model_dir, step), nrow=4)
+                # y_list = np.array(y_list)
+                # save_image(y_list, '{}/y_{}.png'.format(self.model_dir, step), nrow=4)
 
             result = self.sess.run(fetch_dict)
 
@@ -199,4 +205,38 @@ class Trainer(object):
         self.batch_manager.stop_thread()
 
     def test(self):
-        pass
+        output_dir = os.path.join(self.model_dir, 'output')
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        minmax_path = os.path.join(output_dir, 'minmax.txt')
+        f = open(minmax_path, 'w')
+        for i, (x, _, file_name) in enumerate(self.batch_manager.test_batch()):
+            print('testing', file_name)
+            if self.data_format == 'NCHW':
+                x = to_nchw_numpy(x)
+            
+            start_time = time.time()
+            yt_ = self.sess.run(self.yt_, {self.xt: x})
+            duration = time.time() - start_time
+
+            if self.data_format == 'NCHW':
+                x = to_nhwc_numpy(x)[0,:,:,0]
+                yt_ = to_nhwc_numpy(yt_)[0,:,:,0]
+            
+            ymat = (yt_ - 0.5) * 2.0 * self.batch_manager.range_max
+            ymat_path = os.path.join(output_dir, file_name)
+            scipy.io.savemat(ymat_path, dict(y=ymat))
+        
+            ymat_minmax = [np.amin(ymat),np.amax(ymat)]
+            f.write(file_name + '\t' + 
+                    str(ymat_minmax[0]) + '\t' +
+                    str(ymat_minmax[1]) + '\t' + 
+                    '(%.3f sec)' % duration + '\n')
+
+            ypng_path = os.path.join(output_dir, file_name[:-3] + 'png')
+            scipy.misc.imsave(ypng_path, (yt_*255).astype(np.uint8))
+            xpng_path = os.path.join(output_dir, file_name[:-4] + '_in.png')
+            scipy.misc.imsave(xpng_path, (x*255).astype(np.uint8))
+
+        f.close()

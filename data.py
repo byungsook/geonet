@@ -39,8 +39,7 @@ class BatchManager(object):
                     x = os.path.join(noise_path, file_name+'_n{}.mat'.format(config.noise_level))
                     y = os.path.join(org_path, file_name+'.mat')
                     paths.append({'x': x, 'y': y})
-                    if data_type == 'test':
-                        paths.append({'x': y, 'y': y})
+                    paths.append({'x': y, 'y': y}) # contain clean image as well
 
             self.paths[data_type] = paths
 
@@ -148,7 +147,7 @@ class BatchManager(object):
         for i, file_path in enumerate(self.paths['test']):
             x_, y_ = preprocess(file_path, self.image_size, self.range_max, self.rng,
                                 transform=False)
-            yield x_[np.newaxis,...], y_[np.newaxis,...]
+            yield x_[np.newaxis,...], y_[np.newaxis,...], os.path.basename(file_path['x'])
 
 
 def preprocess(path, img_size, range_max, rng, transform=True):
@@ -161,8 +160,13 @@ def preprocess(path, img_size, range_max, rng, transform=True):
             x2 = np.fliplr(x1)
         else:
             x2 = x1
-        r = rng.rand() * 360.0
-        x3 = skimage.transform.rotate(x2, r, order=3, mode='symmetric')
+
+        rot = (rng.rand() > 0.5)
+        if rot:
+            r = rng.rand() * 360.0
+            x3 = skimage.transform.rotate(x2, r, order=3, mode='symmetric')
+        else:
+            x3 = x2
 
         # random left corner
         image_shape = x1.shape
@@ -181,7 +185,12 @@ def preprocess(path, img_size, range_max, rng, transform=True):
             y2 = np.fliplr(y1)
         else:
             y2 = y1
-        y3 = skimage.transform.rotate(y2, r, order=3, mode='symmetric')
+
+        if rot:
+            y3 = skimage.transform.rotate(y2, r, order=3, mode='symmetric')
+        else:
+            y3 = y2
+            
         y = y3[lc_r:lc_r+img_size, lc_c:lc_c+img_size]
     else:
         assert(y1.shape[0] == img_size and y1.shape[1] == img_size)
